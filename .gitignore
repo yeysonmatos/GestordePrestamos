@@ -50,3 +50,6 @@ next-env.d.ts
 cookies.txt
 ngrok-url.txt
 docs/conversation-2026-08-05.json
+
+# secrets/locally-stored tokens
+/TXTs.txt

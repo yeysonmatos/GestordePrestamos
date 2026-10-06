@@ -120,7 +120,7 @@ describe('recordSubscriptionPayment', () => {
   })
 
   it('upgrade preserva el ends_at actual', async () => {
-    const ends = '2026-09-15T00:00:00Z'
+    const ends = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
     const { supabase } = mockSupabase({
       paymentSub: { id: 'pay_up', subscription_id: 'sub_1', amount: 400, target_plan_id: 'plan_pro' },
       subscription: { id: 'sub_1', plan_id: 'plan_basico', status: 'active', ends_at: ends },

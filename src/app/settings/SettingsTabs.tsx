@@ -9,14 +9,16 @@ import AccountContent from '@/app/account/AccountContent'
 import SupportContent from '@/app/support/SupportContent'
 import BackupPanel from '@/components/settings/BackupPanel'
 import ExportPanel from '@/components/settings/ExportPanel'
-import AuditLogsContent from './AuditLogsContent'
 import type { Setting } from '@/types'
+
+const TABS = ['config', 'plan', 'soporte', 'export', 'backup']
 
 function SettingsTabsInner({ settings }: { settings: Setting | null }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const tab = searchParams.get('tab') || 'config'
+  const tabParam = searchParams.get('tab') || 'config'
+  const tab = TABS.includes(tabParam) ? tabParam : 'config'
 
   const setTab = useCallback((v: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -34,7 +36,6 @@ function SettingsTabsInner({ settings }: { settings: Setting | null }) {
           <TabsTrigger value="config">Configuración</TabsTrigger>
           <TabsTrigger value="plan">Mi plan</TabsTrigger>
           <TabsTrigger value="soporte">Soporte</TabsTrigger>
-          <TabsTrigger value="audit">Auditoría</TabsTrigger>
           <TabsTrigger value="export">Exportar datos</TabsTrigger>
           <TabsTrigger value="backup">Backup de datos</TabsTrigger>
         </TabsList>
@@ -49,10 +50,6 @@ function SettingsTabsInner({ settings }: { settings: Setting | null }) {
 
         <TabsContent value="soporte">
           <SupportContent showHeader={false} />
-        </TabsContent>
-
-        <TabsContent value="audit">
-          <AuditLogsContent />
         </TabsContent>
 
         <TabsContent value="export">
