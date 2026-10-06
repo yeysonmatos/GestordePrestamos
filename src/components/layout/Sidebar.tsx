@@ -11,6 +11,8 @@ import {
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 
+const HIDDEN_ITEMS = ['/documents']
+
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Layout },
   { href: '/clients', label: 'Clientes', icon: Users },
@@ -20,7 +22,7 @@ const menuItems = [
   { href: '/reports', label: 'Reportes', icon: ChartBar },
   { href: '/documents', label: 'Documentos', icon: FileText },
   { href: '/settings', label: 'Configuración', icon: Gear },
-]
+].filter(item => !HIDDEN_ITEMS.includes(item.href))
 
 export default function Sidebar() {
   const pathname = usePathname()

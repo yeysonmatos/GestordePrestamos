@@ -143,7 +143,7 @@ export default function DashboardContent({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <div className="mb-4">
-            <h3 className="text-base font-semibold text-foreground">Ingresos vs. préstamos otorgados</h3>
+            <h3 className="text-base font-semibold text-foreground">Ingresos vs Préstamos</h3>
             <p className="text-xs text-muted-foreground mt-0.5">Últimos 6 meses</p>
           </div>
           <div className="h-72">
