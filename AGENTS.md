@@ -698,3 +698,56 @@ Inventario completo de los puntos auditados: Dashboard (8 tarjetas vía `get_loa
 - [x] **`@vercel/speed-insights` v2** instalado y `<SpeedInsights />` montado en `src/app/layout.tsx` (al final del `<body>`). Se mide en **todos** los dominios que sirven esa build (`.do` apex/www + `.vercel.app`).
 - [x] El script se inyecta **en runtime** (`document.head.appendChild`), no en el HTML estático — normal, para medir visitas reales.
 - [x] Desplegado a producción (`vercel --prod` → deployment `gestor-prestamos-99781fkzz`). `gestor-prestamos-one.vercel.app` re-alineado a este deployment; `gestion-prestamos-one.vercel.app` quedó en el anterior (backup). Verificado: tsc OK, build OK, lint sin errores nuevos.
+
+## Pendiente — Google OAuth: publicación y verificación de marca
+
+> Guardado el 05 Oct 2026 tras el rechazo de la verificación de marca. Nada de esto bloquea el acceso de usuarios (ver nota).
+
+### Corrección importante sobre el modo Testing (se tenía mal)
+- [x] **Verificado contra docs oficiales de Google**: en modo *Testing* + *External*, la app **ya acepta cualquier cuenta Google** si solo pide identity scopes básicos. Excepción documentada: "If the app only requests basic identity scopes (`openid`, `email`, `profile`), any user can access without being on the allowlist."
+- [x] **Scopes reales verificados** en la URL de authorize: `scope=email+profile`. Sin scopes sensibles → **no aplica** el tope de 100 usuarios, ni la pantalla de "app no verificada" (Danger UI).
+- Consecuencia: **no existía tal muro de acceso**. Lo único pendiente de "publicar" es quitar la pantalla de aviso "app en modo de pruebas".
+
+### Tabla de estados (referencia)
+| Publishing | Verificación | Scopes | Resultado |
+|---|---|---|---|
+| Testing | N/A | solo `email`/`profile` | Cualquiera entra; muestra aviso de pruebas |
+| Published | Unverified | solo `email`/`profile` | Cualquiera entra; sin aviso; **sin tope de 100**; sin nombre/logo en consent |
+| Published | Verified | solo `email`/`profile` | Cualquiera entra; con nombre y logo |
+
+### 1 · Publicar la app (usuario, requiere sesión Google)
+- [ ] Google Cloud Console → **Google Auth Platform** → pestaña **Audience** → **Publishing status** → **Publish**.
+- [ ] En **Data Access** confirmar que solo aparecen `.../auth/userinfo.email` y `.../auth/userinfo.profile`. Si aparece algo más, **no publicar sin revisar** (ahí sí saltaría el aviso de app no verificada).
+- [ ] En **Branding** dejar apuntando Home page y Privacy Policy a URLs reales de `gestordeprestamos.do` (Google las revisa al pedir verificación).
+
+### 2 · Verificar dominio en Search Console (desbloquea el problema 1 del rechazo)
+- [ ] [search.google.com/search-console](https://search.google.com/search-console) → Add property → tipo **Domain** → `gestordeprestamos.do`.
+- [ ] Pegar el registro **TXT** en los DNS de Vercel (la zona DNS de Vercel ya es autoritativa desde el 01 Sep, así que aplica directo).
+- [ ] Verificar y **esperar 24 h** antes de reintentar la verificación de marca (Google lo exige explícitamente; sin atajo).
+- Nota: causa probable del rechazo → **privacidad WHOIS activa** en el registrador (midominio.com), que oculta el titular real como `REDACTED FOR PRIVACY`. Si Search Console no basta, desactivar esa privacidad.
+
+### 3 · Logo propio (problema 2 del rechazo)
+- [ ] Google rechazó: "El logotipo no identifica de manera inequívoca tu marca y tu identidad."
+- [ ] Logo actual es **"GP" blanco sobre gradiente azul→morado** (`public/gp-icon-opaque.png` 512×512, 106 KB; también `gp-icon-maskable.png`, `gp-icon.png`, `apple-touch-icon.png`). Requisitos de Google: **128×128 mínimo**, PNG o JPEG, **sin** los cuatro colores de Google ni forma de "G", y **coincidir con el branding visible en la homepage** (Google compara ambos).
+- [ ] **DECISIÓN DEL USUARIO PENDIENTE**: ¿existe ya un logo definitivo ("GP Logo.png" que se menciona en el historial) o hay que crear uno? Si hay que crearlo, propuesta: ícono + wordmark "Gestor de Préstamos" con la paleta existente (`primary #2563EB`, `accent #8B5CF6`). Requiere aprobación del usuario antes de subirlo.
+
+### 4 · Reintentar verificación de marca
+- [ ] Solo después de 2 + 3. Botón "Corregí los problemas → Solicita la nueva verificación" en Google Auth Platform.
+- [ ] Alternativa si Google insiste: "Considero que los problemas detectados son incorrectos" → revisión adicional.
+
+### 5 · CAPTCHA y abuso de trials (riesgo real, independiente de la marca)
+- [x] **Config actual verificada** en Supabase: `disable_signup=false`, **`security_captcha_enabled=false`**, `rate_limit_email_sent=2` (por hora).
+- [ ] **Riesgo**: el registro por correo está topado a 2 emails/hora (por el correo integrado de Supabase), pero **OAuth no pasa por ese límite**. Cualquiera con cuentas de Google puede crear cuentas ilimitadas, cada una con **14 días de trial**, sin CAPTCHA.
+- [ ] Activar hCaptcha o Turnstile en Supabase Auth (proveedor ya configurado: `hcaptcha`; solo faltan site key + secret key) **y** añadir el widget al form de `/register`.
+
+### 6 · Rotación de credenciales expuestas (urgente, independiente)
+- [ ] **Client Secret de Google OAuth**: regenerar en Google Auth Platform → Credentials → OAuth 2.0 Client → Download/regenerar secret. PATCH a Supabase (`external_google_secret`) con el nuevo valor.
+- [ ] **PAT de Supabase** (`sbp_...`): revocar el actual y crear uno nuevo.
+- [ ] **Token de Vercel** (`vcp_...`): revocar. Ojo: es *scoped* y no sirve para la CLI; los deploys funcionan por la integración con GitHub, así que no bloquea nada.
+- [ ] No persistir credenciales nuevas en archivos de texto plano del repo.
+
+### 7 · Backlog no relacionado (de sesiones previas)
+- [ ] Cola Gmail: 41 mensajes pendientes (`2 sent`, `27 sending`, `12 queued`) — `smtp.gmail.com:587`.
+- [ ] `src/lib/notify/actions.ts` + `src/lib/notify/queue.ts`: confiabilidad, flush y reintentos.
+- [ ] `src/components/loans/PaymentReceipt.tsx`: solo muestra Capital/Interés cuando `hasMora`.
+- [ ] Crear `/terminos` y enlazar privacidad/términos desde el registro.
