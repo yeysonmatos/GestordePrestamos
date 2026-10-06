@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils'
 
@@ -39,11 +39,19 @@ export default function DashboardAreaChart({ data }: Props) {
         <Area
           type="monotone"
           dataKey="loans"
-          name="Préstamos"
+          name="Prestado"
           stroke="#F59E0B"
           strokeWidth={2}
           fill="url(#loansFill)"
           stackId="1"
+        />
+        <Legend
+          verticalAlign="bottom"
+          height={24}
+          iconType="plainline"
+          formatter={(value: string) => (
+            <span className="text-xs text-muted-foreground">{value}</span>
+          )}
         />
       </AreaChart>
     </ResponsiveContainer>
