@@ -69,11 +69,6 @@ export default function RegisterPage() {
           {error && <Alert variant="danger">{error}</Alert>}
           {message && <Alert variant="success">{message}</Alert>}
 
-          <div className="space-y-3">
-            <GoogleButton label="Registrarse con Google" onError={setError} />
-            <AuthDivider />
-          </div>
-
           <Input label="Nombre completo" type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Juan Pérez" />
 
           <Input label="Correo electrónico" type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />
@@ -142,6 +137,11 @@ export default function RegisterPage() {
           <Button type="submit" loading={loading} className="w-full">
             {loading ? 'Creando cuenta...' : 'Crear cuenta'}
           </Button>
+
+          <div className="space-y-3 pt-1">
+            <AuthDivider />
+            <GoogleButton label="Registrarse con Google" onError={setError} />
+          </div>
 
           <p className="text-sm text-center text-muted-foreground">
             ¿Ya tienes cuenta?{' '}

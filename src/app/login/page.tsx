@@ -161,13 +161,6 @@ export default function LoginPage() {
             </>
           ) : (
 <>
-              {mode === 'login' && (
-                <div className="space-y-3">
-                  <GoogleButton nextPath={nextPath} onError={setError} />
-                  <AuthDivider />
-                </div>
-              )}
-
               <Input label="Correo electrónico" type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />
 
           {mode !== 'reset' && (
@@ -207,6 +200,13 @@ export default function LoginPage() {
           <Button type="submit" loading={loading} className="w-full">
             {mode === 'login' ? 'Entrar' : 'Enviar enlace'}
           </Button>
+
+              {mode === 'login' && (
+                <div className="space-y-3 pt-1">
+                  <AuthDivider />
+                  <GoogleButton nextPath={nextPath} onError={setError} />
+                </div>
+              )}
             </>
           )}
           </form>
