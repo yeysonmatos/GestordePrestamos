@@ -7,6 +7,19 @@ import { createClient } from '@/lib/supabase-client'
 import { Alert } from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import GoogleButton, { AuthDivider } from '@/components/auth/GoogleButton'
+
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  access_denied: 'Cancelaste el acceso. Intenta de nuevo si quieres entrar con Google.',
+  oauth_provider_denied: 'Cancelaste el acceso con Google.',
+  user_already_exists: 'Ya tienes una cuenta con este correo. Ingresa con tu contraseña.',
+  email_exists: 'Ya tienes una cuenta con este correo. Ingresa con tu contraseña.',
+  email_conflict: 'Ya tienes una cuenta con este correo. Ingresa con tu contraseña.',
+  provider_not_enabled: 'El acceso con Google aún no está habilitado. Usa tu correo y contraseña.',
+  oauth_provider_error: 'Google no pudo completar el acceso. Intenta de nuevo.',
+  bad_oauth_callback: 'No se pudo completar el acceso con Google. Intenta de nuevo.',
+  bad_oauth_state: 'La sesión de acceso venció. Intenta de nuevo.',
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -18,13 +31,24 @@ export default function LoginPage() {
   const [message, setMessage] = useState('')
   const [mfaStep, setMfaStep] = useState(false)
   const [mfaCode, setMfaCode] = useState('')
+  const [nextPath, setNextPath] = useState('/dashboard')
   const supabase = createClient()
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const err = params.get('error')
+    const code = params.get('error_code')
     const desc = params.get('error_description')
-    if (err) setError(desc || err)
+    setNextPath(params.get('next') || '/dashboard')
+    if (err || code) {
+      setError(
+        OAUTH_ERROR_MESSAGES[code || ''] ||
+          OAUTH_ERROR_MESSAGES[err || ''] ||
+          desc ||
+          err ||
+          'No se pudo completar la autenticación.'
+      )
+    }
   }, [])
 
   function handleMode(next: 'login' | 'reset') {
@@ -136,9 +160,15 @@ export default function LoginPage() {
               </button>
             </>
           ) : (
-            <>
+<>
+              {mode === 'login' && (
+                <div className="space-y-3">
+                  <GoogleButton nextPath={nextPath} onError={setError} />
+                  <AuthDivider />
+                </div>
+              )}
 
-          <Input label="Correo electrónico" type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />
+              <Input label="Correo electrónico" type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />
 
           {mode !== 'reset' && (
             <div>

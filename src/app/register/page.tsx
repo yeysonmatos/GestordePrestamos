@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase-client'
 import { Alert } from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import GoogleButton, { AuthDivider } from '@/components/auth/GoogleButton'
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('')
@@ -67,6 +68,11 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="bg-card rounded-xl shadow-sm border border-border p-6 space-y-4">
           {error && <Alert variant="danger">{error}</Alert>}
           {message && <Alert variant="success">{message}</Alert>}
+
+          <div className="space-y-3">
+            <GoogleButton label="Registrarse con Google" onError={setError} />
+            <AuthDivider />
+          </div>
 
           <Input label="Nombre completo" type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Juan Pérez" />
 
