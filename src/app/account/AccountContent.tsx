@@ -211,6 +211,9 @@ export default function AccountContent({ showHeader = true }: { showHeader?: boo
 
   const sub = subscription
   const statusInfo = sub ? (statusLabel[sub.status] || { text: sub.status, variant: 'default' as const }) : null
+  const isFreePlan = (sub?.plan_price ?? 0) <= 0
+  const subInGoodState = sub?.status === 'trial' || sub?.status === 'active'
+  const showStatusBadge = !!statusInfo && !(isFreePlan && subInGoodState)
   const daysLeft = sub?.ends_at
     ? Math.max(0, Math.ceil((new Date(sub.ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : null
@@ -239,18 +242,18 @@ export default function AccountContent({ showHeader = true }: { showHeader?: boo
               <CreditCard className="h-5 w-5 text-primary" />
               Tu plan actual
             </h3>
-            {statusInfo && <Badge variant={statusInfo.variant}>{statusInfo.text}</Badge>}
+            {showStatusBadge && statusInfo && <Badge variant={statusInfo.variant}>{statusInfo.text}</Badge>}
           </div>
 
           {sub ? (
             <div className="mt-4 space-y-4">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-bold text-foreground">{sub.plan_name}</span>
-                <span className="text-sm text-muted-foreground">
-                  {sub.plan_price > 0
-                    ? `RD$${formatNumber(sub.plan_price)} / ${sub.billing_cycle === 'yearly' ? 'año' : 'mes'}`
-                    : 'Gratis'}
-                </span>
+                {!isFreePlan && (
+                  <span className="text-sm text-muted-foreground">
+                    RD${formatNumber(sub.plan_price)} / {sub.billing_cycle === 'yearly' ? 'año' : 'mes'}
+                  </span>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
