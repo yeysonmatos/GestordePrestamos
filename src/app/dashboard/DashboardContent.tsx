@@ -16,7 +16,7 @@ import {
 } from '@phosphor-icons/react'
 import type { Loan, Installment, LoanStats } from '@/types'
 
-const DashboardAreaChart = dynamic(() => import('./DashboardAreaChart'), { ssr: false })
+const IncomeLoansAreaChart = dynamic(() => import('@/components/charts/IncomeLoansAreaChart'), { ssr: false })
 
 const EMPTY_STATS: LoanStats = {
   total_capital: 0,
@@ -147,7 +147,7 @@ export default function DashboardContent({
             <p className="text-xs text-muted-foreground mt-0.5">Últimos 6 meses</p>
           </div>
           <div className="h-72">
-            <DashboardAreaChart data={monthlyData} />
+            <IncomeLoansAreaChart data={monthlyData} />
           </div>
         </Card>
 

@@ -6,8 +6,14 @@ import {
 } from 'recharts'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
+export interface IncomeLoansPoint {
+  month: string
+  income: number
+  loans: number
+}
+
 interface Props {
-  data: { month: string; income: number; loans: number }[]
+  data: IncomeLoansPoint[]
 }
 
 function formatAxisValue(value: number): string {
@@ -31,7 +37,7 @@ function niceAxisTicks(maxValue: number, targetTicks: number = 4): number[] {
   return Array.from({ length: count + 1 }, (_, i) => i * step)
 }
 
-export default function DashboardAreaChart({ data }: Props) {
+export default function IncomeLoansAreaChart({ data }: Props) {
   const axisTicks = useMemo(() => {
     const max = data.reduce((acc, d) => Math.max(acc, d.income + d.loans), 0)
     return niceAxisTicks(max)
@@ -52,7 +58,12 @@ export default function DashboardAreaChart({ data }: Props) {
         </defs>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="month" />
-        <YAxis domain={[0, axisTicks[axisTicks.length - 1]]} ticks={axisTicks} tickFormatter={formatAxisValue} width={48} />
+        <YAxis
+          domain={[0, axisTicks[axisTicks.length - 1]]}
+          ticks={axisTicks}
+          tickFormatter={formatAxisValue}
+          width={48}
+        />
         <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
         <Area
           type="monotone"

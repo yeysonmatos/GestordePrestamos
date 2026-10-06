@@ -14,8 +14,8 @@ import {
 } from '@phosphor-icons/react'
 import type { Loan, Payment, LoanStats } from '@/types'
 
-const ReportsBarChart = dynamic(() => import('./ReportsCharts').then(m => m.ReportsBarChart), { ssr: false })
 const ReportsPieChart = dynamic(() => import('./ReportsCharts').then(m => m.ReportsPieChart), { ssr: false })
+const IncomeLoansAreaChart = dynamic(() => import('@/components/charts/IncomeLoansAreaChart'), { ssr: false })
 
 interface Props {
   loans: Loan[]
@@ -113,9 +113,12 @@ export default function ReportsContent({ loans, payments, loanStats, initialPeri
       {advancedReports && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <h3 className="text-base font-semibold text-foreground mb-4">Ingresos vs Préstamos</h3>
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-foreground">Ingresos vs Préstamos</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Últimos 6 meses</p>
+            </div>
             <div className="h-72">
-              <ReportsBarChart data={monthlyData} />
+              <IncomeLoansAreaChart data={monthlyData} />
             </div>
           </Card>
 
