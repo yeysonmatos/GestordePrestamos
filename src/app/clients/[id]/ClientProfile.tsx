@@ -27,9 +27,6 @@ export default function ClientProfile({ client, loans, payments, documents, read
     [loans]
   )
 
-  const initials = (client.first_name?.charAt(0) || client.name.charAt(0)) +
-    (client.last_name?.charAt(0) || client.name.split(' ')[1]?.charAt(0) || '')
-
   return (
     <div className="space-y-6">
       <Link href="/clients" className="text-sm text-primary hover:underline inline-flex items-center gap-1 w-fit">
@@ -37,19 +34,16 @@ export default function ClientProfile({ client, loans, payments, documents, read
       </Link>
 
       <Card className="overflow-hidden p-0">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 text-white">
+        <div className="px-6 py-5 border border-primary">
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center font-bold text-2xl text-white flex-shrink-0">
-              {initials.toUpperCase() || '?'}
-            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-bold">{client.name}</h1>
+                <h1 className="text-xl font-bold text-foreground">{client.name}</h1>
                 <Badge variant={client.status === 'active' ? 'active' : 'cancelled'}>
                   {getStatusLabel(client.status)}
                 </Badge>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-sm text-white/80">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-sm text-muted-foreground">
                 {client.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {client.phone}</span>}
                 {client.email && <span className="flex items-center gap-1"><Envelope className="h-3.5 w-3.5" /> {client.email}</span>}
                 {client.document && <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> {client.document}</span>}
@@ -57,7 +51,7 @@ export default function ClientProfile({ client, loans, payments, documents, read
               </div>
             </div>
             {!readOnly && (
-              <Link href={`/clients/${client.id}/edit`} className="w-9 h-9 rounded-lg border border-white/30 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors shrink-0" title="Editar">
+              <Link href={`/clients/${client.id}/edit`} className="w-9 h-9 rounded-lg border border-primary/40 flex items-center justify-center text-primary hover:bg-primary/5 transition-colors shrink-0" title="Editar">
                 <Pencil className="h-4 w-4" />
               </Link>
             )}

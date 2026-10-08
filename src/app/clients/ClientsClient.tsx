@@ -7,26 +7,19 @@ import Badge from '@/components/ui/Badge'
 import SearchInput from '@/components/ui/SearchInput'
 import PageHeader from '@/components/ui/PageHeader'
 import EmptyState from '@/components/ui/EmptyState'
-import { Progress } from '@/components/ui/Progress'
 import { formatCurrency, getStatusLabel } from '@/lib/utils'
 import { createClient } from '@/lib/supabase-client'
 import ViewTabs from '@/components/ui/ViewTabs'
 import { Alert } from '@/components/ui/Alert'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Phone, FileText, ArrowsClockwise, MagnifyingGlass, WarningCircle } from '@phosphor-icons/react'
+import { Plus, ArrowsClockwise, MagnifyingGlass, WarningCircle } from '@phosphor-icons/react'
 import type { Client, Loan } from '@/types'
 
 interface Props {
   clients: Client[]
   loans: Loan[]
   readOnly: boolean
-}
-
-const avatarColorMap: Record<string, string> = {
-  active: 'bg-primary',
-  inactive: 'bg-muted-foreground',
-  default: 'bg-muted-foreground',
 }
 
 export default function ClientsClient({ clients: initialClients, loans, readOnly }: Props) {
@@ -144,50 +137,30 @@ export default function ClientsClient({ clients: initialClients, loans, readOnly
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(client => {
-            const avatarColor = avatarColorMap[client.status] || avatarColorMap.default
-            const initials = client.name.split(' ').map(s => s.charAt(0)).join('').toUpperCase().slice(0, 2) || '?'
             const activeLoans = loanCounts[client.id] || 0
 
             return (
               <Link key={client.id} href={`/clients/${client.id}`}>
-                <Card className="relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer pl-0">
-                  <div className="flex items-start gap-3 py-3 pl-4 pr-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm text-white flex-shrink-0 ${avatarColor}`}>
-                      {initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-sm text-foreground truncate">{client.name}</h3>
-                        {client.status !== 'active' && (
-                          <Badge variant="cancelled">
-                            {getStatusLabel(client.status)}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                        {client.phone && (
-                          <span className="flex items-center gap-1 text-primary">
-                            <Phone className="h-3 w-3" /> {client.phone}
-                          </span>
-                        )}
-                        {client.document && (
-                          <span className="flex items-center gap-1">
-                            <FileText className="h-3 w-3" /> {client.document}
-                          </span>
-                        )}
-                        <span>{activeLoans} préstamo{activeLoans !== 1 ? 's' : ''}</span>
-                      </div>
-                    </div>
+                <Card className="relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
+                  {client.status !== 'active' && (
+                    <span className="absolute top-3 right-3">
+                      <Badge variant="cancelled">
+                        {getStatusLabel(client.status)}
+                      </Badge>
+                    </span>
+                  )}
+                  <h3 className="font-semibold text-sm text-foreground truncate pr-14">{client.name}</h3>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                    {client.phone && <span>{client.phone}</span>}
+                    {client.document && <span>{client.document}</span>}
+                    <span>{activeLoans} préstamo{activeLoans !== 1 ? 's' : ''}</span>
                   </div>
-                  <div className="flex items-center gap-3 px-4 pb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Progress value={client.trust_score} variant={client.trust_level === 'high' ? 'green' : client.trust_level === 'medium' ? 'yellow' : 'red'} className="flex-1 h-1.5" />
-                      </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs text-muted-foreground">
+                    <div>
+                      Prestado: <span className="font-semibold text-foreground">{formatCurrency(client.total_borrowed)}</span>
                     </div>
-                    <div className="text-right text-xs text-muted-foreground flex-shrink-0">
-                      <div>Prestado: <span className="font-medium text-foreground">{formatCurrency(client.total_borrowed)}</span></div>
-                      <div>Por Cobrar: <span className="font-medium text-foreground">{formatCurrency(client.balance)}</span></div>
+                    <div>
+                      Por cobrar: <span className="font-semibold text-foreground">{formatCurrency(client.balance)}</span>
                     </div>
                   </div>
                 </Card>

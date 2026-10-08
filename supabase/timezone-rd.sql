@@ -114,7 +114,9 @@ GRANT EXECUTE ON FUNCTION public.update_client_stats(UUID) TO service_role;
 -- ------------------------------------------------------------
 -- get_loan_stats: mora real (cuotas vencidas) con el reloj RD
 -- ------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.get_loan_stats(p_user_id UUID, p_from_date DATE DEFAULT NULL)
+DROP FUNCTION IF EXISTS public.get_loan_stats(UUID, DATE);
+
+CREATE OR REPLACE FUNCTION public.get_loan_stats(p_user_id UUID, p_from_date DATE DEFAULT NULL, p_to_date DATE DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = 'public'
@@ -146,13 +148,15 @@ BEGIN
   FROM loans
   WHERE user_id = p_user_id
     AND deleted_at IS NULL
-    AND (p_from_date IS NULL OR created_at >= p_from_date);
+    AND (p_from_date IS NULL OR created_at >= p_from_date)
+    AND (p_to_date IS NULL OR created_at < (p_to_date + 1));
 
   SELECT COALESCE(SUM(capital_amount), 0) INTO v_recovered_capital
   FROM payments
   WHERE user_id = p_user_id
     AND status = 'paid'
-    AND (p_from_date IS NULL OR payment_date >= p_from_date);
+    AND (p_from_date IS NULL OR payment_date >= p_from_date)
+    AND (p_to_date IS NULL OR payment_date <= p_to_date);
 
   SELECT COALESCE(SUM(GREATEST(0, l.amount - COALESCE(pc.paid_capital, 0))), 0) INTO v_pending_capital
   FROM loans l
@@ -165,19 +169,22 @@ BEGIN
   WHERE l.user_id = p_user_id
     AND l.status IN ('active', 'late', 'late_1_30', 'late_31_60', 'late_61_90')
     AND l.deleted_at IS NULL
-    AND (p_from_date IS NULL OR l.created_at >= p_from_date);
+    AND (p_from_date IS NULL OR l.created_at >= p_from_date)
+    AND (p_to_date IS NULL OR l.created_at < (p_to_date + 1));
 
   SELECT COALESCE(SUM(total_interest), 0) INTO v_generated_interest
   FROM loans
   WHERE user_id = p_user_id
     AND deleted_at IS NULL
-    AND (p_from_date IS NULL OR created_at >= p_from_date);
+    AND (p_from_date IS NULL OR created_at >= p_from_date)
+    AND (p_to_date IS NULL OR created_at < (p_to_date + 1));
 
   SELECT COALESCE(SUM(interest_amount), 0) INTO v_collected_interest
   FROM payments
   WHERE user_id = p_user_id
     AND status = 'paid'
-    AND (p_from_date IS NULL OR payment_date >= p_from_date);
+    AND (p_from_date IS NULL OR payment_date >= p_from_date)
+    AND (p_to_date IS NULL OR payment_date <= p_to_date);
 
   WITH late_loan_ids AS (
     SELECT DISTINCT l.id
@@ -242,9 +249,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.get_loan_stats(UUID, DATE) FROM public;
-GRANT EXECUTE ON FUNCTION public.get_loan_stats(UUID, DATE) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_loan_stats(UUID, DATE) TO service_role;
+REVOKE ALL ON FUNCTION public.get_loan_stats(UUID, DATE, DATE) FROM public;
+GRANT EXECUTE ON FUNCTION public.get_loan_stats(UUID, DATE, DATE) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_loan_stats(UUID, DATE, DATE) TO service_role;
 
 -- ------------------------------------------------------------
 -- update_all_loan_statuses: pintado de late_* con el reloj RD

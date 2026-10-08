@@ -276,25 +276,20 @@ export default function LoanDetail({ loan: initialLoan, installments: initialIns
 
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg flex-shrink-0">
-              {loan.client?.name?.charAt(0)?.toUpperCase() || '?'}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold text-foreground">{loan.client?.name || 'Eliminado'}</h1>
+              <Badge variant={loanStatusColors(loan.status).badgeVariant}>{lateStatusLabel(loan.status, loan.late_days || 0)}</Badge>
+              {loan.prepaid_balance > 0 && (
+                <Badge variant="success">Saldo a favor: {formatCurrency(loan.prepaid_balance)}</Badge>
+              )}
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-bold text-foreground">{formatCurrency(loan.amount)}</h1>
-                <Badge variant={loanStatusColors(loan.status).badgeVariant}>{lateStatusLabel(loan.status, loan.late_days || 0)}</Badge>
-                {loan.prepaid_balance > 0 && (
-                  <Badge variant="success">Saldo a favor: {formatCurrency(loan.prepaid_balance)}</Badge>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {loan.loan_id} · {loan.client?.name} · {formatDate(loan.start_date)}
-                {loan.client?.phone && (
-                  <span> · <a href={`tel:${loan.client.phone}`} className="text-primary hover:underline">{loan.client.phone}</a></span>
-                )}
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              {formatCurrency(loan.amount)} · {formatDate(loan.start_date)}
+              {loan.client?.phone && (
+                <span> · <a href={`tel:${loan.client.phone}`}>{loan.client.phone}</a></span>
+              )}
+            </p>
           </div>
           <div className="flex flex-wrap gap-1 flex-shrink-0">
             {loan.paid_installments === 0 && loan.paid_amount === 0 && !readOnly && (

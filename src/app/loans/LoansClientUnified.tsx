@@ -236,27 +236,20 @@ export default function LoansClientUnified({ loans: initialLoans, pendingInstall
           ) : undefined}
         />
       ) : view === 'cards' ? (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filtered.map(loan => {
             const lateDays = getLateDays(loan)
             const colors = loanStatusColors(loan.status)
             const totalInst = loan.installments || 0
             const paidCount = loan.paid_installments || 0
-            const clientInitial = loan.client?.name?.charAt(0)?.toUpperCase() || '?'
 
             return (
               <Link key={loan.id} href={`/loans/${loan.id}`}>
-                <Card className="relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer pl-0">
-                  <div className="flex items-center gap-3 py-3 pl-4 pr-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm text-white flex-shrink-0 ${colors.avatar}`}>
-                      {clientInitial}
-                    </div>
+                <Card className="relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
+                  <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm text-foreground truncate">{loan.client?.name || 'Eliminado'}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[11px] text-muted-foreground">{loan.loan_id}</span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                      <div className="flex flex-col gap-0.5 mt-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" /> {formatDate(loan.start_date)}
                         </span>
@@ -266,7 +259,7 @@ export default function LoansClientUnified({ loans: initialLoans, pendingInstall
                     </div>
                     <div className="text-right flex-shrink-0 min-w-[100px]">
                       <div className="flex justify-end">
-                        <Badge variant={colors.badgeVariant}>{lateStatusLabel(loan.status, lateDays)}</Badge>
+                        <Badge variant={loan.status === 'active' ? 'info' : colors.badgeVariant}>{loan.status === 'active' ? 'En Curso' : lateStatusLabel(loan.status, lateDays)}</Badge>
                       </div>
                       <p className="font-bold text-foreground mt-1">{formatCurrency(loan.amount)}</p>
                       {!loan.open_ended && totalInst > 0 ? (
@@ -290,7 +283,6 @@ export default function LoansClientUnified({ loans: initialLoans, pendingInstall
             <thead>
               <tr className="bg-muted border-b border-border">
                 <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Cliente</th>
-                <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">ID</th>
                 <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Monto</th>
                 <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Progreso</th>
                 <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Frecuencia</th>
@@ -305,7 +297,6 @@ export default function LoansClientUnified({ loans: initialLoans, pendingInstall
                 return (
                   <tr key={loan.id} className="border-b border-border hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => window.location.href = `/loans/${loan.id}`}>
                     <td className="py-3 px-3 font-medium text-foreground">{loan.client?.name || 'Eliminado'}</td>
-                    <td className="py-3 px-3 text-muted-foreground text-xs">{loan.loan_id}</td>
                     <td className="py-3 px-3 text-right font-semibold">{formatCurrency(loan.amount)}</td>
                     <td className="py-3 px-3 text-right">
                       <span className="text-xs text-muted-foreground">{loan.paid_installments || 0}/{loan.installments || 0}</span>

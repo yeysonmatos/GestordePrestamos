@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic'
 import { useMemo } from 'react'
 import { Card } from '@/components/ui/Card'
 import PageHeader from '@/components/ui/PageHeader'
-import ViewTabs from '@/components/ui/ViewTabs'
 import StatCard from '@/components/ui/StatCard'
 import { Alert } from '@/components/ui/Alert'
 import { formatNumber, buildMonthlySeries } from '@/lib/utils'
@@ -21,7 +20,8 @@ interface Props {
   loans: Loan[]
   payments: Payment[]
   loanStats: LoanStats | null
-  initialPeriod?: string
+  initialFrom: string
+  initialTo: string
   advancedReports?: boolean
 }
 
@@ -41,9 +41,8 @@ const EMPTY_STATS: LoanStats = {
   late_clients: 0,
 }
 
-export default function ReportsContent({ loans, payments, loanStats, initialPeriod = 'all', advancedReports = true }: Props) {
+export default function ReportsContent({ loans, payments, loanStats, initialFrom, initialTo, advancedReports = true }: Props) {
   const router = useRouter()
-  const period = initialPeriod as 'all' | 'month' | 'quarter' | 'year'
 
   const stats = useMemo(() => {
     const s = loanStats ?? EMPTY_STATS
@@ -81,17 +80,36 @@ export default function ReportsContent({ loans, payments, loanStats, initialPeri
       />
 
       {advancedReports ? (
-        <ViewTabs
-          options={[
-            { key: 'all', label: 'Todo' },
-            { key: 'month', label: 'Este mes' },
-            { key: 'quarter', label: 'Último trimestre' },
-            { key: 'year', label: 'Este año' },
-          ]}
-          selected={period}
-          onSelect={v => router.push(`/reports?period=${v}`)}
-          ariaLabel="Período de reporte"
-        />
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label htmlFor="report-from" className="block text-xs font-medium text-muted-foreground mb-1">Desde</label>
+            <input
+              id="report-from"
+              type="date"
+              value={initialFrom}
+              max={initialTo}
+              onChange={e => {
+                const v = e.target.value
+                router.push(`/reports?from=${v}&to=${v > initialTo ? v : initialTo}`)
+              }}
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground min-h-11 min-w-0"
+            />
+          </div>
+          <div>
+            <label htmlFor="report-to" className="block text-xs font-medium text-muted-foreground mb-1">Hasta</label>
+            <input
+              id="report-to"
+              type="date"
+              value={initialTo}
+              min={initialFrom}
+              onChange={e => {
+                const v = e.target.value
+                router.push(`/reports?from=${v < initialFrom ? v : initialFrom}&to=${v}`)
+              }}
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground min-h-11 min-w-0"
+            />
+          </div>
+        </div>
       ) : (
         <Alert variant="warning" className="flex items-center justify-between gap-3 p-4 rounded-xl text-sm">
           <div className="flex-1">

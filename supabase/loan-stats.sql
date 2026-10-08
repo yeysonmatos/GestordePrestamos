@@ -1,6 +1,6 @@
 -- RPC centralizado get_loan_stats
 -- Fuente única de verdad para "capital recuperado", mora y métricas de cartera,
--- consumido por Dashboard (sin fecha = histórico) y Reportes (período con fecha).
+-- consumido por Dashboard (sin fecha = histórico) y Reportes (rango p_from_date..p_to_date).
 -- Los préstamos archivados (deleted_at NOT NULL) se excluyen de los agregados de
 -- préstamos; los pagos históricos (capital/interés) sobreviven siempre.
 --
@@ -19,9 +19,11 @@
 --   * La mora se cuenta "vencida hoy" SIN importar el período de Reportes (decisión
 --     del usuario): es tu deuda real pendiente hoy, aun si el préstamo se creó antes.
 --   * Las cifras de movimiento (prestado/recuperado/intereses del período) SÍ
---     respetan p_from_date; el estado de la cartera (activos/morosos/salud) es "hoy".
+--     respetan p_from_date/p_to_date; el estado de la cartera (activos/morosos/salud) es "hoy".
 
-CREATE OR REPLACE FUNCTION public.get_loan_stats(p_user_id UUID, p_from_date DATE DEFAULT NULL)
+DROP FUNCTION IF EXISTS public.get_loan_stats(UUID, DATE);
+
+CREATE OR REPLACE FUNCTION public.get_loan_stats(p_user_id UUID, p_from_date DATE DEFAULT NULL, p_to_date DATE DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = 'public'
@@ -57,13 +59,15 @@ BEGIN
   FROM loans
   WHERE user_id = p_user_id
     AND deleted_at IS NULL
-    AND (p_from_date IS NULL OR created_at >= p_from_date);
+    AND (p_from_date IS NULL OR created_at >= p_from_date)
+    AND (p_to_date IS NULL OR created_at < (p_to_date + 1));
 
   SELECT COALESCE(SUM(capital_amount), 0) INTO v_recovered_capital
   FROM payments
   WHERE user_id = p_user_id
     AND status = 'paid'
-    AND (p_from_date IS NULL OR payment_date >= p_from_date);
+    AND (p_from_date IS NULL OR payment_date >= p_from_date)
+    AND (p_to_date IS NULL OR payment_date <= p_to_date);
 
   -- Préstamos en curso por período (activos + atrasados en cualquiera de sus estados).
   -- Capital pendiente = SOLO principal: monto del préstamo menos el capital ya pagado
@@ -79,19 +83,22 @@ BEGIN
   WHERE l.user_id = p_user_id
     AND l.status IN ('active', 'late', 'late_1_30', 'late_31_60', 'late_61_90')
     AND l.deleted_at IS NULL
-    AND (p_from_date IS NULL OR l.created_at >= p_from_date);
+    AND (p_from_date IS NULL OR l.created_at >= p_from_date)
+    AND (p_to_date IS NULL OR l.created_at < (p_to_date + 1));
 
   SELECT COALESCE(SUM(total_interest), 0) INTO v_generated_interest
   FROM loans
   WHERE user_id = p_user_id
     AND deleted_at IS NULL
-    AND (p_from_date IS NULL OR created_at >= p_from_date);
+    AND (p_from_date IS NULL OR created_at >= p_from_date)
+    AND (p_to_date IS NULL OR created_at < (p_to_date + 1));
 
   SELECT COALESCE(SUM(interest_amount), 0) INTO v_collected_interest
   FROM payments
   WHERE user_id = p_user_id
     AND status = 'paid'
-    AND (p_from_date IS NULL OR payment_date >= p_from_date);
+    AND (p_from_date IS NULL OR payment_date >= p_from_date)
+    AND (p_to_date IS NULL OR payment_date <= p_to_date);
 
   -- ---- Estado de la cartera (mora real = cuotas vencidas hoy, sin período) ----
 
@@ -160,7 +167,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.get_loan_stats(UUID, DATE) FROM public;
-GRANT EXECUTE ON FUNCTION public.get_loan_stats(UUID, DATE) TO authenticated;
+REVOKE ALL ON FUNCTION public.get_loan_stats(UUID, DATE, DATE) FROM public;
+GRANT EXECUTE ON FUNCTION public.get_loan_stats(UUID, DATE, DATE) TO authenticated;
 -- service_role conserva acceso (lo usa el API admin si hace falta el futuro)
-GRANT EXECUTE ON FUNCTION public.get_loan_stats(UUID, DATE) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_loan_stats(UUID, DATE, DATE) TO service_role;

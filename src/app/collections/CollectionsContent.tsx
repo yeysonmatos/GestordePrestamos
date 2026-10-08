@@ -456,42 +456,36 @@ export default function CollectionsContent({
           </div>
         </Card>
       ) : (
-        <div className="max-h-[55vh] overflow-y-auto pr-1 space-y-2">
+        <div className="max-h-[55vh] overflow-y-auto pr-1 grid grid-cols-1 md:grid-cols-2 gap-3">
           {filteredList.map((inst: Installment | SyntheticInstallment) => {
             const client = inst.loan?.client
             const isOpen = ('isOpenEnded' in inst && inst.isOpenEnded)
             const remainingLate = Math.max(0, (inst.late_amount || 0) - ((inst as Installment).paid_late_amount || 0))
             const remaining = inst.amount - (inst.paid_amount || 0)
             const isPartial = (inst.paid_amount ?? 0) > 0 && inst.status !== 'paid'
-            const clientInitial = client?.name?.charAt(0)?.toUpperCase() || '?'
             return (
               <div key={inst.id} className="bg-card rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm text-white flex-shrink-0 bg-primary`}>
-                      {clientInitial}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-semibold text-sm text-foreground">{client?.name || 'Eliminado'}</p>
+                      {filter === 'overdue' && (
+                        <Badge variant={inst.late_days > 60 ? 'late_61_90' : inst.late_days > 30 ? 'late_31_60' : 'late_1_30'}>
+                          {inst.late_days}d atrasado
+                        </Badge>
+                      )}
+                      {filter === 'today' && (
+                        <Badge variant="active">Hoy</Badge>
+                      )}
+                      {isPartial && (
+                        <Badge variant="active">Parcial</Badge>
+                      )}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="font-semibold text-sm text-foreground">{client?.name || 'Eliminado'}</p>
-                        {filter === 'overdue' && (
-                          <Badge variant={inst.late_days > 60 ? 'late_61_90' : inst.late_days > 30 ? 'late_31_60' : 'late_1_30'}>
-                            {inst.late_days}d atrasado
-                          </Badge>
-                        )}
-                        {filter === 'today' && (
-                          <Badge variant="active">Hoy</Badge>
-                        )}
-                        {isPartial && (
-                          <Badge variant="active">Parcial</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {isOpen ? 'Interés' : `Cuota #${inst.number}`} · {inst.loan?.loan_id || inst.loan_id}
-                        {filter === 'upcoming' && <span className="ml-1">· {formatDate(inst.due_date)}</span>}
-                        {isPartial && <span className="text-blue-600 font-medium ml-1">({formatCurrency(inst.paid_amount!)} pagado)</span>}
-                      </p>
-                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {isOpen ? 'Interés' : `Cuota #${inst.number}`}
+                      {filter === 'upcoming' && <span className="ml-1">· {formatDate(inst.due_date)}</span>}
+                      {isPartial && <span className="text-blue-600 font-medium ml-1">({formatCurrency(inst.paid_amount!)} pagado)</span>}
+                    </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-bold text-foreground">
@@ -523,14 +517,8 @@ export default function CollectionsContent({
             return (
               <>
                 <div className="bg-primary/5 rounded-xl p-4 text-sm space-y-1.5">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-9 h-9 rounded-lg bg-white border border-border flex items-center justify-center font-bold text-sm text-primary flex-shrink-0">
-                      {inst.loan?.client?.name?.charAt(0)?.toUpperCase() || '?'}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{inst.loan?.client?.name}</p>
-                      <p className="text-xs text-muted-foreground">{inst.loan?.loan_id}</p>
-                    </div>
+                  <div className="mb-2">
+                    <p className="font-semibold text-foreground">{inst.loan?.client?.name}</p>
                   </div>
                   {('isOpenEnded' in inst && inst.isOpenEnded) ? (
                     <p><span className="text-muted-foreground">Interés del período:</span> <strong>{formatCurrency(inst.amount)}</strong></p>

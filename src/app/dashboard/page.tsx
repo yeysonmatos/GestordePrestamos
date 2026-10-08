@@ -40,7 +40,7 @@ export default async function DashboardPage() {
     .gte('payment_date', sixMonthsAgoStr)
     .order('payment_date', { ascending: false })
 
-  const { data: loanStats } = await supabase.rpc('get_loan_stats', { p_user_id: user?.id })
+  const { data: loanStats } = await supabase.rpc('get_loan_stats', { p_user_id: user?.id, p_from_date: null, p_to_date: null })
 
   const { data: todayPayments } = await supabase
     .from('payments')

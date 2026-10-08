@@ -267,30 +267,36 @@ export default function CalendarContent({ installments, payments, openEndedLoans
             )
           }
           return (
-            <div className="space-y-2">
-              {filtered.slice(0, listLimit).map(inst => {
-                const isOverdue = parseISO(inst.due_date) < new Date() && inst.status !== 'paid'
-                const badgeLabel = inst.status === 'paid' ? 'Pagada' :
-                  inst.status === 'partial' ? 'Parcial' :
-                  isOverdue ? 'Vencida' : 'Pendiente'
-                return (
-                  <div key={inst.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {inst.loan?.client?.name || inst.loan?.loan_id || ''}
-                        {inst.number > 0 ? ` · Cuota #${inst.number}` : ' · Cuota mensual'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Vence: {formatDate(inst.due_date)}</p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {filtered.slice(0, listLimit).map(inst => {
+                  const isOverdue = parseISO(inst.due_date) < new Date() && inst.status !== 'paid'
+                  const badgeLabel = inst.status === 'paid' ? 'Pagada' :
+                    inst.status === 'partial' ? 'Parcial' :
+                    isOverdue ? 'Vencida' : 'Pendiente'
+                  return (
+                    <div key={inst.id} className="bg-card rounded-xl border border-border p-4 hover:shadow-sm transition-shadow">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-foreground truncate">
+                            {inst.loan?.client?.name || inst.loan?.loan_id || ''}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {inst.number > 0 ? `Cuota #${inst.number}` : 'Cuota mensual'}
+                            <span className="ml-1">· Vence: {formatDate(inst.due_date)}</span>
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <Badge variant={inst.status === 'paid' ? 'paid' : inst.status === 'partial' || !isOverdue ? 'active' : 'late'}>
+                            {badgeLabel}
+                          </Badge>
+                          <span className="font-semibold text-foreground">{formatCurrency(inst.amount)}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="font-semibold text-foreground">{formatCurrency(inst.amount)}</span>
-                      <Badge variant={inst.status === 'paid' ? 'paid' : inst.status === 'partial' || !isOverdue ? 'active' : 'late'}>
-                        {badgeLabel}
-                      </Badge>
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
               {filtered.length > listLimit && (
                 <button
                   type="button"

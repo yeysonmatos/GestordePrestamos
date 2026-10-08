@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 
-type BadgeVariant = 'active' | 'paid' | 'cancelled' | 'default' | 'late' | 'late_1_30' | 'late_31_60' | 'late_61_90' | 'success'
+type BadgeVariant = 'active' | 'paid' | 'cancelled' | 'default' | 'late' | 'late_1_30' | 'late_31_60' | 'late_61_90' | 'success' | 'info'
 
 interface BadgeProps {
   variant: BadgeVariant
@@ -16,6 +16,7 @@ const styles: Record<BadgeVariant, string> = {
   late_61_90: 'bg-red-50 text-red-700',
   cancelled: 'bg-muted text-muted-foreground',
   success: 'bg-emerald-50 text-emerald-700',
+  info: 'bg-primary/10 text-primary',
   default: 'bg-primary-light text-primary',
 }
 
