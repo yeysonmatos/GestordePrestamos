@@ -51,7 +51,9 @@ export async function createLoan(input: NewLoanInput) {
   const totalAmount = round2(schedule.reduce((s, r) => s + r.total_amount, 0));
   const totalInterest = round2(schedule.reduce((s, r) => s + r.interest_amount, 0));
   const installmentAmount = round2(schedule[0]?.total_amount ?? 0);
-  const interestPerPeriod = round2(input.principal * periodicRatePct(input.interest_rate, input.frequency));
+  const interestPerPeriod = round2(
+    input.principal * periodicRatePct(input.interest_rate, input.frequency),
+  );
   const lastDue = schedule[schedule.length - 1]?.due_date ?? input.first_payment_date;
 
   const { data: settingsRow } = await supabase
@@ -111,6 +113,7 @@ export async function createLoan(input: NewLoanInput) {
   }
 
   await supabase.rpc("update_client_stats", { p_client_id: input.client_id });
+  await refreshLoanStatus(loan.id);
   return toLoan(loan);
 }
 
@@ -143,7 +146,9 @@ export async function updateLoan(id: string, input: NewLoanInput) {
   const totalAmount = round2(schedule.reduce((s, r) => s + r.total_amount, 0));
   const totalInterest = round2(schedule.reduce((s, r) => s + r.interest_amount, 0));
   const installmentAmount = round2(schedule[0]?.total_amount ?? 0);
-  const interestPerPeriod = round2(input.principal * periodicRatePct(input.interest_rate, input.frequency));
+  const interestPerPeriod = round2(
+    input.principal * periodicRatePct(input.interest_rate, input.frequency),
+  );
   const lastDue = schedule[schedule.length - 1]?.due_date ?? input.first_payment_date;
 
   const { error: upErr } = await supabase
@@ -191,6 +196,7 @@ export async function updateLoan(id: string, input: NewLoanInput) {
     if (e3) throw new Error(e3.message);
   }
   await supabase.rpc("update_client_stats", { p_client_id: current.client_id });
+  await refreshLoanStatus(current.id);
 }
 
 export type PaymentResult = {
@@ -524,7 +530,10 @@ async function recalcInstallmentFromPayments(installmentId: string) {
   ]);
   if (!inst) return;
   const amt = num(inst.amount);
-  const totalPaid = (ps ?? []).reduce((s, p) => s + num(p.capital_amount) + num(p.interest_amount), 0);
+  const totalPaid = (ps ?? []).reduce(
+    (s, p) => s + num(p.capital_amount) + num(p.interest_amount),
+    0,
+  );
   const latePaid = (ps ?? []).reduce((s, p) => s + num(p.late_amount), 0);
   const fully = totalPaid >= amt - 0.009;
   const newPaid = round2(Math.min(totalPaid, amt));
@@ -565,7 +574,8 @@ export async function reversePayment(params: { paymentId: string; reason: string
       const isNewer =
         String(head.payment_date) > String(payment.payment_date) ||
         (sameDay && String(head.created_at) > String(payment.created_at));
-      if (isNewer) throw new Error("Solo puedes revertir el último pago registrado en este préstamo.");
+      if (isNewer)
+        throw new Error("Solo puedes revertir el último pago registrado en este préstamo.");
     }
   }
 
@@ -651,7 +661,7 @@ export async function refreshLoanStatus(loanId: string) {
           .reduce((s, i) => s + Math.max(0, num(i.amount) - num(i.paid_amount)), 0);
 
   const progress =
-    !isOpenEnded && num(loan.amount) > 0
+    isInterestOnly && num(loan.amount) > 0
       ? Math.round(((num(loan.amount) - remaining) / num(loan.amount)) * 100)
       : !isOpenEnded && rows.length > 0
         ? Math.round((fullyPaidCount / rows.length) * 100)
@@ -664,8 +674,9 @@ export async function refreshLoanStatus(loanId: string) {
     progress,
   };
 
-  const allPaid =
-    !isOpenEnded && rows.length > 0 && fullyPaidCount >= rows.length && remaining <= 0.009;
+  const allPaid = isOpenEnded
+    ? remaining <= 0.009
+    : rows.length > 0 && fullyPaidCount >= rows.length && remaining <= 0.009;
   if (allPaid) {
     updates.status = "paid";
     updates.paid_at = new Date().toISOString();
@@ -703,10 +714,7 @@ export async function archiveLoan(loanId: string, archived: boolean) {
       .update({ status: "cancelled", deleted_at: new Date().toISOString() })
       .eq("id", loanId);
   } else {
-    await supabase
-      .from("loans")
-      .update({ status: "active", deleted_at: null })
-      .eq("id", loanId);
+    await supabase.from("loans").update({ status: "active", deleted_at: null }).eq("id", loanId);
     await refreshLoanStatus(loanId);
   }
 }
@@ -729,4 +737,3 @@ export function csvDownload(filename: string, rows: (string | number)[][]) {
   a.click();
   URL.revokeObjectURL(url);
 }
-

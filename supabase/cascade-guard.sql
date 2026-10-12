@@ -119,8 +119,8 @@ BEGIN
   ELSE v_new_status := 'pending';
   END IF;
 
-  v_interest_amount := LEAST(v_paid_to_inst, v_inst.interest);
-  v_capital_amount := GREATEST(0, v_paid_to_inst - v_interest_amount);
+  v_interest_amount := LEAST(v_paid_to_inst, GREATEST(0, v_inst.interest - LEAST(v_previously_paid, v_inst.interest)));
+  v_capital_amount := v_paid_to_inst - v_interest_amount;
 
   INSERT INTO payments (loan_id, installment_id, client_id, user_id, amount, capital_amount, interest_amount, late_amount, payment_date, method, notes)
   VALUES (v_loan.id, v_inst.id, v_loan.client_id, p_user_id, p_amount, v_capital_amount, v_interest_amount, v_paid_to_late, p_payment_date, COALESCE(p_method, 'cash'), p_notes)
@@ -336,8 +336,8 @@ BEGIN
     v_new_status := CASE WHEN v_is_now_fully_paid THEN 'paid' WHEN v_total_paid_on_inst > 0 THEN 'partial' ELSE 'pending' END;
 
     IF (v_paid_to_inst + v_paid_to_late) > 0.005 THEN
-      v_interest_amount := LEAST(v_paid_to_inst, v_inst.interest);
-      v_capital_amount := GREATEST(0, v_paid_to_inst - v_interest_amount);
+      v_interest_amount := LEAST(v_paid_to_inst, GREATEST(0, v_inst.interest - LEAST(v_previously_paid, v_inst.interest)));
+      v_capital_amount := v_paid_to_inst - v_interest_amount;
 
       INSERT INTO payments (loan_id, installment_id, client_id, user_id, amount, capital_amount, interest_amount, late_amount, payment_date, method, notes)
       VALUES (v_loan.id, v_inst.id, v_loan.client_id, p_user_id, v_paid_to_inst + v_paid_to_late, v_capital_amount, v_interest_amount, v_paid_to_late, p_payment_date, COALESCE(p_method, 'cash'), p_notes)

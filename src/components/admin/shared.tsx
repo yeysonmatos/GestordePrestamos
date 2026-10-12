@@ -296,7 +296,7 @@ export function RegistrarPagoButton({
                 <SelectContent>
                   {(plans ?? []).map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} · {rd(p.price)}/mes
+                      {p.name} · RD$ {rd(p.price)}/mes
                     </SelectItem>
                   ))}
                 </SelectContent>

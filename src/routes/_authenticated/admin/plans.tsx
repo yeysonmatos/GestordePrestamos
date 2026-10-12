@@ -181,7 +181,9 @@ function AdminPlans() {
                     <Badge variant="destructive">Inactivo</Badge>
                   )}
                 </div>
-                <p className="mb-1 text-2xl font-bold text-foreground">{rd(plan.price)}</p>
+                <p className="mb-1 text-2xl font-bold text-foreground">
+                  {Number(plan.price) === 0 ? "Gratis" : `RD$ ${rd(plan.price)}`}
+                </p>
                 <p className="mb-3 text-xs text-muted-foreground">
                   {plan.max_clients != null && plan.max_clients > 0
                     ? `Máximo ${plan.max_clients} deudores`

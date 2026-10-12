@@ -46,6 +46,7 @@ function Settings() {
     owner_name: "",
     phone: "",
     default_late_fee_rate: "",
+    grace_days: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -58,6 +59,7 @@ function Settings() {
         default_late_fee_rate: profile.default_late_fee_rate
           ? String(profile.default_late_fee_rate)
           : "",
+        grace_days: profile.grace_days ? String(profile.grace_days) : "",
       });
     }
   }, [profile]);
@@ -71,18 +73,17 @@ function Settings() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const { error } = await supabase
-      .from("settings")
-      .upsert(
-        {
-          user_id: profile?.id ?? "",
-          business_name: form.business_name || "Mi Negocio",
-          personal_name: form.owner_name || null,
-          business_phone: form.phone || null,
-          late_interest_rate: Number(form.default_late_fee_rate) || 0,
-        },
-        { onConflict: "user_id" },
-      );
+    const { error } = await supabase.from("settings").upsert(
+      {
+        user_id: profile?.id ?? "",
+        business_name: form.business_name || "Mi Negocio",
+        personal_name: form.owner_name || null,
+        business_phone: form.phone || null,
+        late_interest_rate: Number(form.default_late_fee_rate) || 0,
+        grace_days: Number(form.grace_days) || 0,
+      },
+      { onConflict: "user_id" },
+    );
     setSaving(false);
     if (error) {
       toast.error(error.message);
@@ -152,6 +153,21 @@ function Settings() {
                 onChange={(e) => setForm({ ...form, default_late_fee_rate: e.target.value })}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gracia">Días de gracia antes de cobrar mora</Label>
+              <Input
+                id="gracia"
+                inputMode="numeric"
+                className="h-11"
+                placeholder="0"
+                value={form.grace_days}
+                onChange={(e) => setForm({ ...form, grace_days: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Ej. 3: la cuota vencida empieza a generar mora a partir del día 4. Se aplica en
+                Cobros y en el detalle del préstamo.
+              </p>
+            </div>
             <Button type="submit" variant="accent" disabled={saving}>
               {saving ? "Guardando…" : "Guardar cambios"}
             </Button>
@@ -185,4 +201,3 @@ function Settings() {
     </>
   );
 }
-

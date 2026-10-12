@@ -66,8 +66,14 @@ function Pricing() {
               <header>
                 <p className="font-display text-lg font-semibold">{p.name}</p>
                 <p className="mt-2">
-                  <span className="font-display text-3xl font-bold">{p.price.toLocaleString()}</span>
-                  <span className="text-sm text-muted-foreground">/{p.cycle}</span>
+                  {p.price === 0 ? (
+                    <span className="font-display text-3xl font-bold">Gratis</span>
+                  ) : (
+                    <>
+                      <span className="font-display text-3xl font-bold">RD$ {p.price.toLocaleString("es-DO")}</span>
+                      <span className="text-sm text-muted-foreground">/{p.cycle}</span>
+                    </>
+                  )}
                 </p>
               </header>
               <ul className="mt-4 flex-1 space-y-2 text-sm">

@@ -182,8 +182,8 @@ SELECT * INTO v_inst
   ELSE v_new_status := 'pending';
   END IF;
 
-  v_interest_amount := LEAST(v_paid_to_inst, v_inst.interest);
-  v_capital_amount := GREATEST(0, v_paid_to_inst - v_interest_amount);
+  v_interest_amount := LEAST(v_paid_to_inst, GREATEST(0, v_inst.interest - LEAST(v_previously_paid, v_inst.interest)));
+  v_capital_amount := v_paid_to_inst - v_interest_amount;
 
   INSERT INTO payments (loan_id, installment_id, client_id, user_id, amount, capital_amount, interest_amount, late_amount, payment_date, method, notes)
   VALUES (v_loan.id, v_inst.id, v_loan.client_id, p_user_id, p_amount, v_capital_amount, v_interest_amount, v_paid_to_late, p_payment_date, COALESCE(p_method, 'cash'), p_notes)
