@@ -1,20 +1,24 @@
-const CACHE = 'mis-prestamos-v5'
+const CACHE = 'gestor-prestamos-lovable-v2'
 const STATIC_ASSETS = [
-  '/manifest.json',
-  '/gp-icon-opaque.png',
+  '/manifest.webmanifest',
+  '/offline.html',
+  '/gp-icon.png',
+  '/gp-icon-512.png',
   '/gp-icon-maskable.png',
   '/apple-touch-icon.png',
-  '/offline.html',
+  '/favicon-48.png',
 ]
 
-// URLs que NUNCA se cachean: datos autenticados de Supabase y APIs propias.
-// Cachearlas puede servir datos obsoletos o de otra sesión (fuga entre cuentas).
+// URLs que NUNCA se cachean: datos autenticados y APIs.
+// Cachearlas puede servir datos obsoletos o de otra sesion.
 const NO_CACHE_PATTERNS = [
   /^https?:\/\/[^/]*supabase\.co\//,
-  /^\/rest\/v1\//,
-  /^\/auth\/v1\//,
-  /^\/storage\/v1\//,
+  /^https?:\/\/[^/]*supabase\.io\//,
   /^\/api\//,
+  /\/functions\//,
+  /\/auth\/v1\//,
+  /\/rest\/v1\//,
+  /\/storage\/v1\//,
 ]
 
 function shouldSkipCache(url) {
@@ -40,9 +44,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match('/offline.html')
-      )
+      fetch(event.request).catch(() => caches.match('/offline.html'))
     )
     return
   }
@@ -52,13 +54,15 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request).then((response) => {
-        if (response && response.status === 200) {
-          const clone = response.clone()
-          caches.open(CACHE).then((cache) => cache.put(event.request, clone))
-        }
-        return response
-      }).catch(() => cached)
+      const fetchPromise = fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const clone = response.clone()
+            caches.open(CACHE).then((cache) => cache.put(event.request, clone))
+          }
+          return response
+        })
+        .catch(() => cached)
       return cached || fetchPromise
     })
   )

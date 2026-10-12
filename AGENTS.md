@@ -1,12 +1,47 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+## ⚠️ Mudanza de base — 12 Oct 2026 (esto es lo que el repo CONTIENE hoy)
+
+El árbol de app Next.js documentado abajo **fue reemplazado** por la nueva base construida en Lovable
+(`lovable-project-566a17d1`, respaldada en zip + carpeta local). Lo que sigue describe la nueva base:
+
+- **Stack**: Vite + TanStack Start/Router (SSR con `.server.ts`), `@tanstack/react-query`, Tailwind v4
+  (`src/styles.css`), lucide-react, sonner, shadcn-style en `src/components/ui`, alias `@/`.
+- **Rutas**: `src/routes/` — `auth.tsx` (login/registro/Google/recuperación), `_authenticated/*`
+  (dashboard, clients.*, loans.* [new/index/$id], collections, calendar, reports, settings, account,
+  onboarding), `admin/*` (index, users, plans, payments, audit, emails, smtp-config, payment-config,
+  reminders, comunicaciones, support, seguridad), `pricing/privacidad/terminos/suspended/index`.
+- **Lib central**: `src/lib/` — `db.ts` (supabase + mapeos BD↔vista ES: FREQ/LOAN_TYPE/METHOD/KIND),
+  `finance.ts` (rd() sin símbolo, periodicRatePct, buildSchedule, recalcFrenchSchedule, settlementQuote,
+  installmentStatus, lateFee, todaySD), `actions.ts` (createLoan/payInstallment/payCapital/payOpenInterest/
+  settleLoan/reversePayment/refreshLoanStatus), `payment-labels.ts` (getPaymentLabel), `entitlements.ts`
+  (plan/lectura-solo), `admin-api.server.ts` (todo el panel admin), `messages.ts`, `csv/xlsx`, `backup` NO existe aún.
+- **BD**: MISMA que antes (`snwwvvmszizarakrozah`) — RPCs compartidos (process_installment_payment,
+  update_client_stats, get_loan_stats...). `supabase/` y `scripts/` se fusionaron (los 9 scripts de test/exec
+  nuevos + admin-full/plan-max-loans/subscriber-support SQL).
+- **PWA**: `public/manifest.webmanifest` + `sw.js` (cache `gestor-prestamos-lovable-v2`) + íconos nuevos
+  (gp-icon.png 192 / gp-icon-512 / gp-icon-maskable / apple-touch 180 / favicon-48, todos PNG reales).
+- **Anti doble-clic**: `src/hooks/use-guarded-action.ts` + `lockRef` en PayDialog — usar en toda acción de dinero.
+- **Env**: `.env.local` (VITE_SUPABASE_URL/PUBLISHABLE_KEY + SUPABASE_URL/SERVICE_ROLE/ACCESS_TOKEN).
+  Viejo `.env.local` Next.js archivado como `env.local.nextjs.bak` (Resend/CRON_SECRET para fases de deploy).
+- **PENDIENTES de la mudanza** (no hechos aún): MFA obligatorio al login (patrón GP nextLevel==='aal2'),
+  Módulo Documentos (portar desde la app vieja), crons de backup + subscription-notify (portar server routes
+  + vercel.json), rotación de credenciales (Access Token en .env).
+- **HECHO (12 Oct)**: login Google ya usa `supabase.auth.signInWithOAuth` nativo + ruta `auth.callback.tsx`
+  (se borró `src/integrations/lovable/` y la dep `@lovable.dev/cloud-auth-js`); allow-list de Supabase
+  ampliado con `localhost:8080` y `192.168.0.202:8080` (+ /auth/callback, /auth/reset-password).
+- **REGLA**: nada de `git commit`, `push` ni `vercel deploy` sin pedido explícito del usuario.
+- Rollback: la app vieja Next.js está intacta en el commit `6656a42` (nada de la mudanza está commiteado).
+
+---
+
+<!-- BEGIN:nextjs-agent-rules — OBSOLETO desde 12 Oct 2026, la base ya no es Next.js -->
+# (histórico) This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
 # Mis Préstamos — Objetivo
 
-App profesional de control de préstamos (Next.js + Supabase) con dos modelos de amortización:
+App profesional de control de préstamos (Vite/TanStack Start + Supabase — desde 12 Oct 2026) con dos modelos de amortización:
 - **Francesa** — cuota fija, capital creciente, interés decreciente (bancos/financieras)
 - **Interest-Only** — pagos periódicos de solo interés, capital al liquidar (prestamistas informales RD)
 

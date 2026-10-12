@@ -1,92 +1,22 @@
-﻿'use client'
+import * as React from "react";
 
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string
-  error?: string
-}
-
-export default function Input({ label, error, className, id, ...props }: InputProps) {
-  const inputId = id || label?.toLowerCase().replace(/\s+/g, '-')
-
-  return (
-    <div className="space-y-1">
-      {label && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-muted-foreground">
-          {label}
-        </label>
-      )}
+const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
+  ({ className, type, ...props }, ref) => {
+    return (
       <input
-        id={inputId}
+        type={type}
         className={cn(
-          'block w-full min-w-0 rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring bg-card min-h-11',
-          error ? 'border-destructive focus:ring-destructive' : 'border-border',
-          className
+          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          className,
         )}
+        ref={ref}
         {...props}
       />
-      {error && <p className="text-sm text-destructive">{error}</p>}
-    </div>
-  )
-}
+    );
+  },
+);
+Input.displayName = "Input";
 
-interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label?: string
-  error?: string
-}
-
-export function Textarea({ label, error, className, id, ...props }: TextareaProps) {
-  const inputId = id || label?.toLowerCase().replace(/\s+/g, '-')
-
-  return (
-    <div className="space-y-1">
-      {label && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-muted-foreground">
-          {label}
-        </label>
-      )}
-      <textarea
-        id={inputId}
-        className={cn(
-          'block w-full min-w-0 rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring bg-card',
-          error ? 'border-destructive focus:ring-destructive' : 'border-border',
-          className
-        )}
-        {...props}
-      />
-      {error && <p className="text-sm text-destructive">{error}</p>}
-    </div>
-  )
-}
-
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  label?: string
-  options: { value: string; label: string }[]
-}
-
-export function Select({ label, options, className, id, ...props }: SelectProps) {
-  const selectId = id || label?.toLowerCase().replace(/\s+/g, '-')
-
-  return (
-    <div className="space-y-1">
-      {label && (
-        <label htmlFor={selectId} className="block text-sm font-medium text-muted-foreground">
-          {label}
-        </label>
-      )}
-      <select
-        id={selectId}
-        className={cn(
-          'block w-full rounded-lg border border-border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring bg-card min-h-11',
-          className
-        )}
-        {...props}
-      >
-        {options.map(opt => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-    </div>
-  )
-}
+export { Input };

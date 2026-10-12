@@ -53,3 +53,14 @@ docs/conversation-2026-08-05.json
 
 # secrets/locally-stored tokens
 /TXTs.txt
+
+# nueva base TanStack Start/Vite
+/dist
+/dist-ssr
+/.output
+/.tanstack
+/.nitro
+/.vinxi
+/.wrangler
+/env.local.nextjs.bak
+/bun.lock

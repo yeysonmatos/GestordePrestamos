@@ -1,0 +1,327 @@
+
+> dev
+> vite dev
+
+[33mThe plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the [1mresolve.tsconfigPaths[22m option. You can remove the plugin and set [1mresolve.tsconfigPaths: true[22m in your Vite config instead.[39m
+
+  [32m[1mVITE[22m v8.1.5[39m  [2mready in [0m[1m2893[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m8080[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.0.202:[1m8080[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m5:50:26 a. m.[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m connected.
+[2m7:16:54 a. m.[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles.css?direct, /src/routes/auth.tsx, /src/routes/auth.tsx?tsr-split=component[22m
+[2m7:16:54 a. m.[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m [32mpage reload [39m[2msrc/routes/auth.tsx[22m
+[2m7:16:54 a. m.[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m program reload
+[2m7:17:27 a. m.[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles.css?direct, /src/routes/auth.tsx, /src/routes/auth.tsx?tsr-split=component[22m
+[2m7:17:27 a. m.[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m [32mpage reload [39m[2msrc/routes/auth.tsx[22m
+File C:\Users\YMatos\Desktop\GestordePrestamos\src\routeTree.gen.ts was modified by another process during processing.
+[2m7:17:57 a. m.[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/routeTree.gen.ts[22m
+[2m7:17:57 a. m.[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m [32mpage reload [39m[2msrc/routeTree.gen.ts[22m
+[2m7:18:47 a. m.[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles.css?direct, /src/routes/auth.callback.tsx[22m
+[2m7:18:47 a. m.[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m [32mpage reload [39m[2msrc/routes/auth.callback.tsx[22m
+[2m7:18:47 a. m.[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m program reload
+[2m7:19:36 a. m.[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.output/public/offline.html[22m
+[2m7:19:44 a. m.[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2m.output/public/offline.html[22m
+[2m7:21:07 a. m.[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/integrations/lovable/index.ts[22m
+[2m7:21:07 a. m.[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m [32mpage reload [39m[2msrc/integrations/lovable/index.ts[22m
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12) (status 500)
+caused by: Error: aborted
+    at abortIncoming (node:_http_server:922:17)
+    at socketOnClose (node:_http_server:915:3)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
