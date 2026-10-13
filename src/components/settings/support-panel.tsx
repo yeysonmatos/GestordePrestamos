@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, LifeBuoy, MessageSquarePlus, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { supportNotifyAdmin } from "@/lib/admin-fns";
 import { Chip } from "@/components/money";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,13 +47,7 @@ type Message = {
   created_at: string | null;
 };
 
-function FilePills({
-  files,
-  onRemove,
-}: {
-  files: File[];
-  onRemove: (i: number) => void;
-}) {
+function FilePills({ files, onRemove }: { files: File[]; onRemove: (i: number) => void }) {
   if (!files.length) return null;
   return (
     <div className="flex flex-wrap gap-2">
@@ -167,10 +162,17 @@ export function SupportPanel() {
       if (error) throw new Error(error.message);
       if (newFiles.length && created?.id) {
         const att = await uploadAll(newFiles, `support/${created.id}`);
-        if (att.length) await supabase.from("support_tickets").update({ attachments: att }).eq("id", created.id);
+        if (att.length)
+          await supabase.from("support_tickets").update({ attachments: att }).eq("id", created.id);
       }
       setNewFiles([]);
       toast.success("Ticket creado. El equipo te responderá por aquí y por correo.");
+      // Aviso por correo al admin (no bloquea la UI si falla).
+      if (created?.id) {
+        void supportNotifyAdmin({ data: { ticketId: created.id, kind: "created" } }).catch(
+          () => {},
+        );
+      }
       setForm({ subject: "", body: "", priority: "normal" });
       setOpenNew(false);
       queryClient.invalidateQueries({ queryKey: ["my-tickets"] });
@@ -197,6 +199,10 @@ export function SupportPanel() {
       if (ticket.status === "replied" || ticket.status === "closed") {
         await supabase.from("support_tickets").update({ status: "open" }).eq("id", ticket.id);
       }
+      // Aviso por correo al admin de la respuesta del suscriptor.
+      void supportNotifyAdmin({
+        data: { ticketId: ticket.id, kind: "reply", message: reply.trim() },
+      }).catch(() => {});
       setReply("");
       setReplyFiles([]);
       queryClient.invalidateQueries({ queryKey: ["ticket-messages", ticket.id] });
@@ -228,9 +234,7 @@ export function SupportPanel() {
       {!isLoading && tickets.length === 0 && (
         <div className="surface flex flex-col items-center gap-2 p-10 text-center">
           <LifeBuoy className="size-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Todavía no has abierto ningún ticket.
-          </p>
+          <p className="text-sm text-muted-foreground">Todavía no has abierto ningún ticket.</p>
         </div>
       )}
 
@@ -292,7 +296,10 @@ export function SupportPanel() {
                           <Send className="mr-1 size-4" /> Enviar
                         </Button>
                       </div>
-                      <FilePills files={replyFiles} onRemove={(i) => setReplyFiles((fs) => fs.filter((_, x) => x !== i))} />
+                      <FilePills
+                        files={replyFiles}
+                        onRemove={(i) => setReplyFiles((fs) => fs.filter((_, x) => x !== i))}
+                      />
                       <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-primary">
                         <FileText className="size-4" /> Adjuntar captura o PDF
                         <input
@@ -363,7 +370,10 @@ export function SupportPanel() {
                 placeholder="Describe el problema o la pregunta con detalle…"
               />
             </div>
-            <FilePills files={newFiles} onRemove={(i) => setNewFiles((fs) => fs.filter((_, x) => x !== i))} />
+            <FilePills
+              files={newFiles}
+              onRemove={(i) => setNewFiles((fs) => fs.filter((_, x) => x !== i))}
+            />
             <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-primary">
               <FileText className="size-4" /> Adjuntar capturas o PDF
               <input
@@ -392,5 +402,3 @@ export function SupportPanel() {
     </div>
   );
 }
-
-

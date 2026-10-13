@@ -31,8 +31,19 @@ export async function requireAdmin(): Promise<AdminCtx> {
   return { admin: supabaseAdmin as unknown as AdminClient, userId: uid }
 }
 
-// ===================== SMTP =====================
+/** Autentica a CUALQUIER usuario logueado (sin exigir rol admin). */
+export async function requireAuth(): Promise<AdminCtx> {
+  const { getRequestHeaders } = await import('@tanstack/react-start/server')
+  const { supabaseAdmin } = await import('@/integrations/supabase/client.server')
+  const auth = getRequestHeaders().get('authorization') || ''
+  const token = String(auth).replace(/^Bearer\s+/i, '')
+  if (!token) throw new Error('No autenticado')
+  const { data: ud, error } = await supabaseAdmin.auth.getUser(token)
+  if (error || !ud?.user) throw new Error('No autenticado')
+  return { admin: supabaseAdmin as unknown as AdminClient, userId: ud.user.id }
+}
 
+// ===================== SMTP =====================
 export interface SmtpConfig {
   host: string
   port: number
@@ -594,6 +605,65 @@ export async function supportUpdate(body: { id: string; status?: string; priorit
       }
     }
   }
+  return { ok: true }
+}
+
+/**
+ * Avisa por correo AL ADMIN cuando un suscriptor abre un ticket o responde.
+ * (Las respuestas del admin al suscriptor ya se notifican en supportReply.)
+ */
+export async function supportNotifyAdmin(body: {
+  ticketId: string
+  kind?: 'created' | 'reply'
+  message?: string
+}) {
+  const { admin, userId } = await requireAuth()
+  const id = String(body.ticketId || '')
+  if (!id) throw new Error('Falta ticketId')
+  const kind: 'created' | 'reply' = body.kind === 'reply' ? 'reply' : 'created'
+
+  // El ticket debe pertenecer al usuario que llama (evita avisos ajenos).
+  const { data: ticket } = await admin
+    .from('support_tickets')
+    .select('id, user_id, subject, body, priority')
+    .eq('id', id)
+    .maybeSingle()
+  if (!ticket || ticket.user_id !== userId) throw new Error('Ticket no encontrado')
+
+  const { data: adm } = await admin.from('app_users').select('id').eq('role', 'admin').limit(1).maybeSingle()
+  if (!adm) return { ok: false }
+  const { data: au } = await admin.auth.admin.getUserById(adm.id)
+  const adminEmail = au?.user?.email
+  if (!adminEmail) return { ok: false }
+
+  const { data: st } = await admin.from('settings').select('business_name').eq('user_id', userId).maybeSingle()
+  const { data: caller } = await admin.auth.admin.getUserById(userId)
+  const name = st?.business_name || caller?.user?.email || 'Un suscriptor'
+
+  const raw = kind === 'reply' ? body.message || '' : ticket.body || ''
+  const text = raw.slice(0, 800).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const title = kind === 'reply' ? 'Nueva respuesta de un suscriptor' : 'Nueva solicitud de soporte'
+  const subject =
+    kind === 'reply'
+      ? `Respuesta de ${name}: ${ticket.subject}`
+      : `Nueva solicitud de soporte: ${ticket.subject}`
+
+  await enqueueAndSend(admin, {
+    recipientType: 'admin',
+    recipientEmail: adminEmail,
+    templateKey: kind === 'reply' ? 'ticket_user_reply' : 'ticket_created',
+    subject,
+    htmlBody: shell(
+      title,
+      `<p><strong>${name}</strong> ${kind === 'reply' ? 'respondió a' : 'abrió'} la solicitud "<strong>${ticket.subject}</strong>" (prioridad ${ticket.priority || 'normal'}).</p>` +
+        `<div style="margin:12px 0;padding:12px;border-left:3px solid #2563EB;background:#f8fafc;white-space:pre-wrap">${text}</div>` +
+        `<p>Revísalo en el panel de administración, sección Soporte.</p>`,
+    ),
+    eventType: kind === 'reply' ? 'support.user_reply' : 'support.created',
+    entityType: 'ticket',
+    entityId: id,
+    dedupeKey: kind === 'created' ? `admin-ticket:${id}` : null,
+  })
   return { ok: true }
 }
 
