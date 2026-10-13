@@ -202,3 +202,11 @@
     margin: 12mm;
   }
 }
+
+/* Los inputs de fecha traen un ancho intrinseco grande en moviles:
+   forzamos que nunca excedan su contenedor (evita desborde horizontal). */
+input[type="date"] {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}

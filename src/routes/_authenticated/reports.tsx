@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Download, Lock, Printer } from "lucide-react";
+import { Download, Lock, Printer, CalendarDays, X } from "lucide-react";
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { PageHeader } from "@/components/app-shell";
 import { CollectionsChart } from "@/components/collections-chart";
@@ -62,6 +62,7 @@ function Reports() {
   const today = todaySD();
   const [desde, setDesde] = useState(`${today.slice(0, 4)}-01-01`);
   const [hasta, setHasta] = useState(today);
+  const [filtrosOpen, setFiltrosOpen] = useState(false);
 
   const inRange = useMemo(
     () =>
@@ -168,28 +169,74 @@ function Reports() {
         }
       />
 
-      <div className="no-print mb-4 flex w-full min-w-0 flex-col gap-2 sm:max-w-md sm:flex-row sm:items-end sm:gap-3">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <Label htmlFor="desde">Desde</Label>
-          <Input
-            id="desde"
-            type="date"
-            className="h-11 w-full min-w-0"
-            value={desde}
-            onChange={(e) => setDesde(e.target.value)}
-          />
-        </div>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <Label htmlFor="hasta">Hasta</Label>
-          <Input
-            id="hasta"
-            type="date"
-            className="h-11 w-full min-w-0"
-            value={hasta}
-            onChange={(e) => setHasta(e.target.value)}
-          />
-        </div>
+      <div className="no-print mb-4 w-full">
+        <Button
+          variant="secondary"
+          className="h-11 w-full justify-between sm:w-auto sm:min-w-72"
+          onClick={() => setFiltrosOpen(true)}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <CalendarDays className="size-4 shrink-0" />
+            <span className="truncate">
+              {formatDate(desde)} → {formatDate(hasta)}
+            </span>
+          </span>
+          <span className="ml-2 shrink-0 text-xs text-muted-foreground">Cambiar</span>
+        </Button>
       </div>
+
+      {filtrosOpen && (
+        <div
+          className="no-print fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center"
+          onClick={() => setFiltrosOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <p className="font-display text-sm font-semibold">Período del reporte</p>
+              <button
+                type="button"
+                onClick={() => setFiltrosOpen(false)}
+                aria-label="Cerrar"
+                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="min-w-0 space-y-1.5">
+                <Label htmlFor="desde">Desde</Label>
+                <Input
+                  id="desde"
+                  type="date"
+                  className="h-11 w-full min-w-0 max-w-full text-sm"
+                  value={desde}
+                  onChange={(e) => setDesde(e.target.value)}
+                />
+              </div>
+              <div className="min-w-0 space-y-1.5">
+                <Label htmlFor="hasta">Hasta</Label>
+                <Input
+                  id="hasta"
+                  type="date"
+                  className="h-11 w-full min-w-0 max-w-full text-sm"
+                  value={hasta}
+                  onChange={(e) => setHasta(e.target.value)}
+                />
+              </div>
+            </div>
+            <Button
+              variant="accent"
+              className="mt-4 h-11 w-full"
+              onClick={() => setFiltrosOpen(false)}
+            >
+              Aplicar
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card label="Cobrado" value={totals.cobrado} />
