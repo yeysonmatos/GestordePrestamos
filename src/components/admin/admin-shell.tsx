@@ -18,6 +18,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { usePendingPayments, usePendingSupport } from "@/lib/admin";
+import { OverflowDebug } from "@/components/overflow-debug";
 
 const MAIN_NAV = [
   { to: "/admin", label: "Resumen", icon: LayoutDashboard, exact: true },
@@ -139,7 +140,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="px-4 pb-28 pt-4 sm:px-6 lg:ml-64 lg:px-8 lg:pb-12 lg:pt-8">
+      <main className="overflow-x-hidden px-4 pb-28 pt-4 sm:px-6 lg:ml-64 lg:px-8 lg:pb-12 lg:pt-8">
         <div className="mx-auto max-w-6xl">{children}</div>
       </main>
 
@@ -232,6 +233,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           Más
         </button>
       </nav>
+
+      <OverflowDebug />
     </div>
   );
 }

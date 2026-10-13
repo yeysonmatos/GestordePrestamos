@@ -22,6 +22,7 @@ import { reportsBlocked, useEntitlements } from "@/lib/entitlements";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { OverflowDebug } from "@/components/overflow-debug";
 
 const NAV = [
   { to: "/dashboard", label: "Inicio", icon: LayoutDashboard },
@@ -136,7 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      <main className="px-4 pb-28 pt-4 sm:px-6 lg:ml-64 lg:px-8 lg:pb-12 lg:pt-8">
+      <main className="overflow-x-hidden px-4 pb-28 pt-4 sm:px-6 lg:ml-64 lg:px-8 lg:pb-12 lg:pt-8">
         {readOnly && (
           <div className="no-print mb-4 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -238,6 +239,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="w-full truncate whitespace-nowrap text-center leading-none">Más</span>
         </button>
       </nav>
+
+      <OverflowDebug />
     </div>
   );
 }
