@@ -18,7 +18,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { usePendingPayments, usePendingSupport } from "@/lib/admin";
-import { OverflowDebug } from "@/components/overflow-debug";
 
 const MAIN_NAV = [
   { to: "/admin", label: "Resumen", icon: LayoutDashboard, exact: true },
@@ -233,8 +232,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           Más
         </button>
       </nav>
-
-      <OverflowDebug />
     </div>
   );
 }

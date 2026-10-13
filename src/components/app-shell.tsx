@@ -22,7 +22,6 @@ import { reportsBlocked, useEntitlements } from "@/lib/entitlements";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { OverflowDebug } from "@/components/overflow-debug";
 
 const NAV = [
   { to: "/dashboard", label: "Inicio", icon: LayoutDashboard },
@@ -239,8 +238,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="w-full truncate whitespace-nowrap text-center leading-none">Más</span>
         </button>
       </nav>
-
-      <OverflowDebug />
     </div>
   );
 }
