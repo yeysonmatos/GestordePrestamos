@@ -140,7 +140,7 @@ function AuthPage() {
         await goHome();
       } else if (mode === "reset") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth`,
+          redirectTo: `${window.location.origin}/auth/reset-password`,
           ...(captchaToken ? { captchaToken } : {}),
         });
         if (error) throw error;
