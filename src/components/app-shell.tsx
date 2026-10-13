@@ -34,11 +34,11 @@ const NAV = [
 ] as const;
 
 const MOBILE_NAV = NAV.filter((n) =>
-  ["/dashboard", "/collections", "/loans", "/clients", "/calendar"].includes(n.to),
+  ["/dashboard", "/collections", "/loans", "/clients"].includes(n.to),
 );
 
-// Opciones del panel "Más": Reportes, Ajustes, Mi plan y Cerrar sesión.
-const MOBILE_EXTRA = NAV.filter((n) => ["/reports", "/settings"].includes(n.to));
+// Opciones del panel "Más": Calendario, Reportes, Ajustes y Cerrar sesión.
+const MOBILE_EXTRA = NAV.filter((n) => ["/calendar", "/reports", "/settings"].includes(n.to));
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: profile } = useProfile();
@@ -56,7 +56,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setMoreOpen(false);
   }, [pathname]);
 
-  const moreActive = pathname === "/reports" || pathname.startsWith("/reports/");
+  const moreActive = ["/calendar", "/reports", "/settings"].some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
 
   async function signOut() {
     await queryClient.cancelQueries();
