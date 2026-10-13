@@ -12,24 +12,25 @@ import {
   MoreHorizontal,
   ShieldCheck,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { usePendingPayments } from "@/lib/admin";
+import { usePendingPayments, usePendingSupport } from "@/lib/admin";
 
 const MAIN_NAV = [
   { to: "/admin", label: "Resumen", icon: LayoutDashboard, exact: true },
   { to: "/admin/users", label: "Usuarios", icon: Users, exact: false },
   { to: "/admin/payments", label: "Pagos", icon: HandCoins, exact: false },
-  { to: "/admin/plans", label: "Planes", icon: CreditCard, exact: false },
   { to: "/admin/support", label: "Soporte", icon: LifeBuoy, exact: false },
 ] as const;
 
 const MORE_NAV = [
+  { to: "/admin/audit", label: "Auditorías", icon: FileText, exact: false },
+  { to: "/admin/plans", label: "Planes", icon: CreditCard, exact: false },
+  { to: "/admin/payment-config", label: "Datos de pago", icon: Wallet, exact: false },
   { to: "/admin/comunicaciones", label: "Comunicaciones", icon: Bell, exact: false },
-  { to: "/admin/payment-config", label: "Datos de pago", icon: CreditCard, exact: false },
-  { to: "/admin/audit", label: "Auditoría", icon: FileText, exact: false },
   { to: "/admin/seguridad", label: "Seguridad", icon: ShieldCheck, exact: false },
 ] as const;
 
@@ -50,7 +51,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: pendingCount } = usePendingPayments();
+  const { data: pendingSupport } = usePendingSupport();
   const [moreOpen, setMoreOpen] = useState(false);
+
+  /** Contador para el badge rojo de cada seccion del menu. */
+  function badgeFor(to: string): number {
+    if (to === "/admin/payments") return pendingCount ?? 0;
+    if (to === "/admin/support") return pendingSupport ?? 0;
+    return 0;
+  }
 
   useEffect(() => {
     setMoreOpen(false);
@@ -95,9 +104,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               )}
               <Icon className="size-[18px] shrink-0" />
               {label}
-              {to === "/admin/payments" && !!pendingCount && (
+              {badgeFor(to) > 0 && (
                 <span className="ml-auto min-w-5 rounded-full bg-destructive px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white">
-                  {pendingCount}
+                  {badgeFor(to)}
                 </span>
               )}
             </Link>
@@ -187,7 +196,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Navegación inferior móvil */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-border bg-card/95 backdrop-blur lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-card/95 backdrop-blur lg:hidden">
         {MAIN_NAV.map(({ to, label, icon: Icon }) => {
           const active = isActive(pathname, to, to === "/admin");
           return (
@@ -201,9 +210,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             >
               <span className="relative">
                 <Icon className={cn("size-5", active && "text-foreground")} />
-                {to === "/admin/payments" && !!pendingCount && (
+                {badgeFor(to) > 0 && (
                   <span className="absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-destructive px-1 text-center text-[9px] font-bold leading-4 text-white">
-                    {pendingCount}
+                    {badgeFor(to)}
                   </span>
                 )}
               </span>
@@ -226,4 +235,3 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

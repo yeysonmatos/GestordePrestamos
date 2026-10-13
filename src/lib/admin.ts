@@ -2,7 +2,20 @@
 import { supabase } from "@/integrations/supabase/client";
 import { todaySD } from "@/lib/finance";
 import type { Database } from "@/integrations/supabase/types";
-import { dashboardData, auditList, plansList, paymentsList, paymentsExport, assignPlanAction, confirmPaymentAction as confirmPaymentFn, extendSubscription, userSubscriptions, resendPasswordEmail, flushQueueAction } from "@/lib/admin-fns";
+import {
+  dashboardData,
+  auditList,
+  plansList,
+  paymentsList,
+  paymentsExport,
+  assignPlanAction,
+  confirmPaymentAction as confirmPaymentFn,
+  extendSubscription,
+  userSubscriptions,
+  resendPasswordEmail,
+  flushQueueAction,
+  supportList,
+} from "@/lib/admin-fns";
 
 type PlanRow = Database["public"]["Tables"]["plans"]["Row"];
 type SubRow = Database["public"]["Tables"]["subscriptions"]["Row"];
@@ -113,7 +126,13 @@ export type AdminPagosStats = {
   counts: { pending: number; confirmed: number; rejected: number };
   totalCobrado: number;
   confirmadosUsers: number;
-  recientes: { id: string; business_name: string; amount: number; status: string; payment_date: string | null }[];
+  recientes: {
+    id: string;
+    business_name: string;
+    amount: number;
+    status: string;
+    payment_date: string | null;
+  }[];
 };
 
 function esActivo(status: string) {
@@ -238,7 +257,9 @@ export function useAdminPayments(filters: PaymentFiltersUi = {}) {
 }
 
 /** Todos los pagos con los filtros activos (para exportar). */
-export async function adminPaymentsExport(filters: Omit<PaymentFiltersUi, "page" | "page_size"> = {}) {
+export async function adminPaymentsExport(
+  filters: Omit<PaymentFiltersUi, "page" | "page_size"> = {},
+) {
   const res = await paymentsExport({ data: filters });
   return res.items as AdminPayment[];
 }
@@ -366,7 +387,10 @@ export async function rejectPayment(paymentId: string) {
   if (pErr) throw new Error(pErr.message);
   if ((pay as any).status !== "pending") throw new Error("Solo se rechazan pagos pendientes");
 
-  const { error } = await supabase.from("subscription_payments").update({ status: "rejected" }).eq("id", paymentId);
+  const { error } = await supabase
+    .from("subscription_payments")
+    .update({ status: "rejected" })
+    .eq("id", paymentId);
   if (error) throw new Error(error.message);
   await writeAudit({
     userId: pay.user_id,
@@ -421,9 +445,6 @@ export async function setUserAccess(userId: string, blocked: boolean) {
   });
 }
 
-
-
-
 /** Elimina un plan (solo admin via politica FOR ALL is_admin). */
 export async function deletePlan(id: string) {
   const { error } = await supabase.from("plans").delete().eq("id", id);
@@ -447,3 +468,14 @@ export function usePendingPayments() {
   });
 }
 
+/** Número de solicitudes de soporte abiertas (badge del menú admin). */
+export function usePendingSupport() {
+  return useQuery({
+    queryKey: ["admin-pending-support"],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const res = (await supportList({ data: { status: "open" } })) as { tickets?: unknown[] };
+      return (res.tickets ?? []).length;
+    },
+  });
+}

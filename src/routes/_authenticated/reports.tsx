@@ -168,7 +168,7 @@ function Reports() {
         }
       />
 
-      <div className="no-print mb-4 flex w-full max-w-md flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+      <div className="no-print mb-4 flex w-full min-w-0 flex-col gap-2 sm:max-w-md sm:flex-row sm:items-end sm:gap-3">
         <div className="min-w-0 flex-1 space-y-1.5">
           <Label htmlFor="desde">Desde</Label>
           <Input
@@ -199,7 +199,7 @@ function Reports() {
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <div className="surface p-5 lg:col-span-2">
+        <div className="surface min-w-0 overflow-hidden p-5 lg:col-span-2">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="font-display text-base font-semibold">Cobros por mes</h2>
             <Money value={totals.cobrado} className="font-display text-sm font-bold" />
@@ -207,7 +207,7 @@ function Reports() {
           <CollectionsChart data={porMes} />
         </div>
 
-        <div className="surface p-5">
+        <div className="surface min-w-0 overflow-hidden p-5">
           <h2 className="font-display text-base font-semibold">Estado de la cartera</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Morosidad {cartera.tasa.toFixed(1)}% sobre {rd(cartera.total)}

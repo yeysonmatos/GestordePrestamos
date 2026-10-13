@@ -257,7 +257,7 @@ export function PageHeader({
         <h1 className="font-display text-2xl font-bold sm:text-3xl">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
-      {action && <div className="no-print flex gap-2">{action}</div>}
+      {action && <div className="no-print flex flex-wrap gap-2">{action}</div>}
     </div>
   );
 }
