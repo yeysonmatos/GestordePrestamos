@@ -55,7 +55,6 @@ export const TurnstileCaptcha = forwardRef<TurnstileHandle>(function TurnstileCa
           sitekey: SITE_KEY,
           theme: "auto",
           size: "normal",
-          appearance: "interaction-only",
           callback: (token: string) => {
             executingRef.current = false;
             tokenRef.current = token;
@@ -95,8 +94,9 @@ export const TurnstileCaptcha = forwardRef<TurnstileHandle>(function TurnstileCa
       tokenRef.current = ts.getResponse(id) ?? tokenRef.current;
       if (!tokenRef.current) {
         try {
-          // dispara el reto si hace falta; con "interaction-only" el usuario ve la
-          // caja solo cuando Cloudflare pide confirmacion (la mayoria no la vera)
+          // dispara el reto si hace falta y espera a que se resuelva (el widget
+          // se auto-resuelve la mayoria de las veces; si Cloudflare pide prueba,
+          // el usuario ve la casilla y el siguiente envio ya trae el token)
           if (!executingRef.current) {
             executingRef.current = true;
             ts.execute(id);
@@ -104,8 +104,8 @@ export const TurnstileCaptcha = forwardRef<TurnstileHandle>(function TurnstileCa
         } catch {
           /* no disponible aun */
         }
-        for (let i = 0; i < 5 && !tokenRef.current; i++) {
-          await new Promise((r) => setTimeout(r, 100));
+        for (let i = 0; i < 40 && !tokenRef.current; i++) {
+          await new Promise((r) => setTimeout(r, 200));
           tokenRef.current = ts.getResponse(id) ?? tokenRef.current;
         }
       }
