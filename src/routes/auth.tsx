@@ -362,11 +362,11 @@ function AuthPage() {
                     : "Enviar enlace"}
             </Button>
 
-            {mode === "login" && (
+            {mode !== "reset" && (
               <div className="space-y-3 pt-1">
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="h-px flex-1 bg-border" />
-                  o
+                  {mode === "register" ? "o regístrate con" : "o"}
                   <span className="h-px flex-1 bg-border" />
                 </div>
                 <Button type="button" variant="outline" className="h-11 w-full" onClick={google}>
