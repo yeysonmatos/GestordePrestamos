@@ -49,7 +49,9 @@ next-env.d.ts
 # local-only developer files (no commits)
 cookies.txt
 ngrok-url.txt
+dev-server.log
 docs/conversation-2026-08-05.json
+CONTINUACION.md
 
 # secrets/locally-stored tokens
 /TXTs.txt

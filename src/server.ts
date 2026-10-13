@@ -47,6 +47,12 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const path = new URL(request.url).pathname;
+      if (path.startsWith("/api/cron/")) {
+        const { handleCronRequest } = await import("./lib/cron.server");
+        const cronResponse = await handleCronRequest(request);
+        if (cronResponse) return cronResponse;
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

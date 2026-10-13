@@ -1,11 +1,12 @@
 ﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, MailCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TurnstileCaptcha, type TurnstileHandle } from "@/components/auth/turnstile";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -69,7 +70,8 @@ function PasswordField(props: {
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>(
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mode") === "register"
+    typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("mode") === "register"
       ? "register"
       : "login",
   );
@@ -81,6 +83,7 @@ function AuthPage() {
   const [accepted, setAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const turnstileRef = useRef<TurnstileHandle>(null);
 
   async function goHome() {
     let isAdmin = false;
@@ -118,13 +121,25 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      let captchaToken: string | undefined;
+      if (turnstileRef.current) {
+        // Con CAPTCHA deshabilitado en Supabase esto es opcional; con él activado
+        // (tras el cutover) el widget ya esta resuelto y aporta el token.
+        const t = await turnstileRef.current.getToken();
+        if (t) captchaToken = t;
+      }
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: captchaToken ? { captchaToken } : {},
+        });
         if (error) throw error;
         await goHome();
       } else if (mode === "reset") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth`,
+          ...(captchaToken ? { captchaToken } : {}),
         });
         if (error) throw error;
         toast.success("Revisa tu correo para restablecer tu contraseña.");
@@ -138,6 +153,7 @@ function AuthPage() {
           password,
           options: {
             emailRedirectTo: window.location.origin,
+            ...(captchaToken ? { captchaToken } : {}),
             data: {
               full_name: fullName.trim(),
               business_name: fullName.trim() || "Mi Negocio",
@@ -154,8 +170,16 @@ function AuthPage() {
         }
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos completar la operación");
+      const anyErr = err as { error_code?: string; message?: string };
+      const msg =
+        anyErr?.error_code === "captcha_failed"
+          ? "Completa la verificación humana (caja de Cloudflare) y vuelve a intentar."
+          : err instanceof Error
+            ? err.message
+            : "No pudimos completar la operación";
+      toast.error(msg);
     } finally {
+      turnstileRef.current?.reset();
       setLoading(false);
     }
   }
@@ -192,7 +216,11 @@ function AuthPage() {
             className="mx-auto mb-3 size-16 rounded-xl object-cover"
           />
           <h1 className="font-display text-2xl font-bold">
-            {mode === "register" ? "Crear cuenta" : mode === "reset" ? "Restablecer contraseña" : "Gestor de Prestamos"}
+            {mode === "register"
+              ? "Crear cuenta"
+              : mode === "reset"
+                ? "Restablecer contraseña"
+                : "Gestor de Prestamos"}
           </h1>
           <p className="text-sm text-muted-foreground">
             {mode === "register"
@@ -209,149 +237,171 @@ function AuthPage() {
             <h2 className="text-lg font-semibold">¡Casi listo!</h2>
             <p className="text-sm text-muted-foreground">
               Enviamos un correo de confirmación a{" "}
-              <strong className="text-foreground">{sentEmail}</strong>. Ábrelo y pulsa el enlace para
-              activar tu cuenta; luego inicia sesión y comienza tu prueba de 14 días. Si no lo ves,
-              revisa la carpeta de spam.
+              <strong className="text-foreground">{sentEmail}</strong>. Ábrelo y pulsa el enlace
+              para activar tu cuenta; luego inicia sesión y comienza tu prueba de 14 días. Si no lo
+              ves, revisa la carpeta de spam.
             </p>
             <Button variant="accent" className="h-11 w-full" onClick={() => cambiarModo("login")}>
               Entendido, iniciar sesión
             </Button>
           </div>
         ) : (
-        <form
-          onSubmit={onSubmit}
-          className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm"
-        >
-          <h2 className="text-lg font-semibold">
-            {mode === "login" ? "Iniciar sesión" : mode === "register" ? "Crea tu cuenta" : "Recupera tu acceso"}
-          </h2>
+          <form
+            onSubmit={onSubmit}
+            className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm"
+          >
+            <h2 className="text-lg font-semibold">
+              {mode === "login"
+                ? "Iniciar sesión"
+                : mode === "register"
+                  ? "Crea tu cuenta"
+                  : "Recupera tu acceso"}
+            </h2>
 
-          {mode === "register" && (
+            {mode === "register" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="fullName" className="text-sm text-muted-foreground">
+                  Nombre completo
+                </Label>
+                <Input
+                  id="fullName"
+                  required
+                  autoComplete="name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Juan Pérez"
+                  className={inputCls}
+                />
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              <Label htmlFor="fullName" className="text-sm text-muted-foreground">
-                Nombre completo
+              <Label htmlFor="email" className="text-sm text-muted-foreground">
+                Correo electrónico
               </Label>
               <Input
-                id="fullName"
+                id="email"
+                type="email"
                 required
-                autoComplete="name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Juan Pérez"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@correo.com"
                 className={inputCls}
               />
             </div>
-          )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-sm text-muted-foreground">
-              Correo electrónico
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@correo.com"
-              className={inputCls}
-            />
-          </div>
-
-          {mode !== "reset" && (
-            <PasswordField
-              id="password"
-              label="Contraseña"
-              value={password}
-              show={showPassword}
-              onToggle={() => setShowPassword((v) => !v)}
-              onChange={setPassword}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-            />
-          )}
-
-          {mode === "register" && (
-            <PasswordField
-              id="confirm"
-              label="Confirmar contraseña"
-              value={confirm}
-              show={showPassword}
-              onToggle={() => setShowPassword((v) => !v)}
-              onChange={setConfirm}
-              placeholder="Repite tu contraseña"
-              autoComplete="new-password"
-            />
-          )}
-
-          {mode === "register" && (
-            <label className="flex items-start gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={accepted}
-                onChange={(e) => setAccepted(e.target.checked)}
-                className="mt-1 size-4 rounded border-input"
+            {mode !== "reset" && (
+              <PasswordField
+                id="password"
+                label="Contraseña"
+                value={password}
+                show={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+                onChange={setPassword}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
               />
-              <span>
-                Acepto los{" "}
-                <Link to="/terminos" className="font-medium text-primary hover:underline">
-                  Términos y Condiciones
-                </Link>
-              </span>
-            </label>
-          )}
+            )}
 
-          {mode === "login" && (
-            <button
-              type="button"
-              onClick={() => cambiarModo("reset")}
-              className="text-sm text-primary hover:underline"
-            >
-              ¿Olvidaste tu contraseña?
-            </button>
-          )}
+            {mode === "register" && (
+              <PasswordField
+                id="confirm"
+                label="Confirmar contraseña"
+                value={confirm}
+                show={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+                onChange={setConfirm}
+                placeholder="Repite tu contraseña"
+                autoComplete="new-password"
+              />
+            )}
 
-          <Button type="submit" disabled={loading} className="h-11 w-full text-base" variant="accent">
-            {loading
-              ? "Procesando…"
-              : mode === "login"
-                ? "Entrar"
-                : mode === "register"
-                  ? "Crear cuenta"
-                  : "Enviar enlace"}
-          </Button>
+            {mode === "register" && (
+              <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={accepted}
+                  onChange={(e) => setAccepted(e.target.checked)}
+                  className="mt-1 size-4 rounded border-input"
+                />
+                <span>
+                  Acepto los{" "}
+                  <Link to="/terminos" className="font-medium text-primary hover:underline">
+                    Términos y Condiciones
+                  </Link>
+                </span>
+              </label>
+            )}
 
-          {mode === "login" && (
-            <div className="space-y-3 pt-1">
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="h-px flex-1 bg-border" />
-                o
-                <span className="h-px flex-1 bg-border" />
-              </div>
-              <Button
+            {mode === "login" && (
+              <button
                 type="button"
-                variant="outline"
-                className="h-11 w-full"
-                onClick={google}
+                onClick={() => cambiarModo("reset")}
+                className="text-sm text-primary hover:underline"
               >
-                <svg viewBox="0 0 24 24" className="mr-2 size-4" aria-hidden="true">
-                  <path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.2-2.2H12v4h6.5c-.1 1.1-.8 2.7-2.3 3.8l3.6 2.8c2.2-2 3.7-5 3.7-8.4z" />
-                  <path fill="#34A853" d="M12 23.5c3.2 0 5.9-1.1 7.8-2.9l-3.6-2.8c-1 .7-2.3 1.2-4.2 1.2-3.2 0-5.9-2.1-6.9-5.1L1.4 16c1.9 3.8 5.8 7.5 10.6 7.5z" />
-                  <path fill="#FBBC05" d="M5.1 13.9c-.3-.8-.3-1.5-.3-2.4 0-.8.1-1.6.3-2.3L1.4 6.3C.5 8.1 0 10 0 12s.5 3.9 1.4 5.7l3.7-2.8z" />
-                  <path fill="#EA4335" d="M12 4.6c2.2 0 3.6 1 4.5 1.8l3.3-3.2C17.9 1.2 15.2 0 12 0 7.2 0 3.3 3.6 1.4 7.5l3.7 2.9c1-3 3.7-5.8 6.9-5.8z" />
-                </svg>
-                Continuar con Google
-              </Button>
-            </div>
-          )}
-        </form>
+                ¿Olvidaste tu contraseña?
+              </button>
+            )}
+
+            <TurnstileCaptcha ref={turnstileRef} />
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="h-11 w-full text-base"
+              variant="accent"
+            >
+              {loading
+                ? "Procesando…"
+                : mode === "login"
+                  ? "Entrar"
+                  : mode === "register"
+                    ? "Crear cuenta"
+                    : "Enviar enlace"}
+            </Button>
+
+            {mode === "login" && (
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" />
+                  o
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+                <Button type="button" variant="outline" className="h-11 w-full" onClick={google}>
+                  <svg viewBox="0 0 24 24" className="mr-2 size-4" aria-hidden="true">
+                    <path
+                      fill="#4285F4"
+                      d="M23.5 12.3c0-.9-.1-1.5-.2-2.2H12v4h6.5c-.1 1.1-.8 2.7-2.3 3.8l3.6 2.8c2.2-2 3.7-5 3.7-8.4z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23.5c3.2 0 5.9-1.1 7.8-2.9l-3.6-2.8c-1 .7-2.3 1.2-4.2 1.2-3.2 0-5.9-2.1-6.9-5.1L1.4 16c1.9 3.8 5.8 7.5 10.6 7.5z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.1 13.9c-.3-.8-.3-1.5-.3-2.4 0-.8.1-1.6.3-2.3L1.4 6.3C.5 8.1 0 10 0 12s.5 3.9 1.4 5.7l3.7-2.8z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 4.6c2.2 0 3.6 1 4.5 1.8l3.3-3.2C17.9 1.2 15.2 0 12 0 7.2 0 3.3 3.6 1.4 7.5l3.7 2.9c1-3 3.7-5.8 6.9-5.8z"
+                    />
+                  </svg>
+                  Continuar con Google
+                </Button>
+              </div>
+            )}
+          </form>
         )}
 
         <p className="text-center text-sm text-muted-foreground">
           {mode === "login" && (
             <>
               ¿No tienes cuenta?{" "}
-              <button type="button" onClick={() => cambiarModo("register")} className="text-primary hover:underline">
+              <button
+                type="button"
+                onClick={() => cambiarModo("register")}
+                className="text-primary hover:underline"
+              >
                 Regístrate
               </button>{" "}
               ·{" "}
@@ -363,13 +413,21 @@ function AuthPage() {
           {mode === "register" && (
             <>
               ¿Ya tienes cuenta?{" "}
-              <button type="button" onClick={() => cambiarModo("login")} className="text-primary hover:underline">
+              <button
+                type="button"
+                onClick={() => cambiarModo("login")}
+                className="text-primary hover:underline"
+              >
                 Inicia sesión
               </button>
             </>
           )}
           {mode === "reset" && (
-            <button type="button" onClick={() => cambiarModo("login")} className="text-primary hover:underline">
+            <button
+              type="button"
+              onClick={() => cambiarModo("login")}
+              className="text-primary hover:underline"
+            >
               Volver a inicio de sesión
             </button>
           )}
@@ -386,4 +444,3 @@ function AuthPage() {
     </div>
   );
 }
-
