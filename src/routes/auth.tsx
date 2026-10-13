@@ -105,9 +105,33 @@ function AuthPage() {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) void goHome();
+    // Un enlace de recuperación llega como ?code= (PKCE) o #…type=recovery:
+    // en ese caso NO auto-entramos; llevamos a la pantalla de contraseña nueva.
+    const q = new URLSearchParams(window.location.search);
+    const hash = window.location.hash || "";
+    const isAuthLanding =
+      q.has("code") ||
+      q.has("error") ||
+      q.has("error_description") ||
+      /type=recovery|error=/.test(hash);
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session) {
+        navigate({ to: "/auth/reset-password", replace: true });
+      }
     });
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) return;
+      if (isAuthLanding) {
+        // sesión creada por el enlace de recuperación -> a poner la contraseña
+        navigate({ to: "/auth/reset-password", replace: true });
+      } else {
+        void goHome();
+      }
+    });
+
+    return () => sub.subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
