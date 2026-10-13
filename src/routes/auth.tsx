@@ -123,10 +123,12 @@ function AuthPage() {
     try {
       let captchaToken: string | undefined;
       if (turnstileRef.current) {
-        // Con CAPTCHA deshabilitado en Supabase esto es opcional; con él activado
-        // (tras el cutover) el widget ya esta resuelto y aporta el token.
+        // El widget ya resolvio en segundo plano o muestra la casilla solo si
+        // Cloudflare pide confirmacion (interaction-only). Sin token, avisamos
+        // antes de llegar a Supabase (que lo rechazaria con error crudo).
         const t = await turnstileRef.current.getToken();
-        if (t) captchaToken = t;
+        if (!t) throw new Error("Marca la casilla de verificación (Cloudflare) para continuar.");
+        captchaToken = t;
       }
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({

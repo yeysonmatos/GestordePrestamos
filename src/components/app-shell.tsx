@@ -11,7 +11,6 @@ import {
   Settings,
   LogOut,
   Plus,
-
   CreditCard,
   AlertTriangle,
   MoreHorizontal,
@@ -57,8 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setMoreOpen(false);
   }, [pathname]);
 
-  const moreActive =
-    pathname === "/reports" || pathname.startsWith("/reports/");
+  const moreActive = pathname === "/reports" || pathname.startsWith("/reports/");
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -80,25 +78,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </p>
         </div>
         <nav className="flex-1 space-y-1 px-3">
-          {NAV.filter((n) => !(hideReports && n.to === "/reports")).map(({ to, label, icon: Icon }) => {
-            const active = pathname === to || pathname.startsWith(`${to}/`);
-            return (
-              <Link
-                key={to}
-                to={to}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <Icon className="size-[18px]" />
-                {label}
-                {active && <span className="ml-auto h-5 w-1 rounded-full bg-sidebar-primary" />}
-              </Link>
-            );
-          })}
+          {NAV.filter((n) => !(hideReports && n.to === "/reports")).map(
+            ({ to, label, icon: Icon }) => {
+              const active = pathname === to || pathname.startsWith(`${to}/`);
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  className={cn(
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                  )}
+                >
+                  <Icon className="size-[18px]" />
+                  {label}
+                  {active && <span className="ml-auto h-5 w-1 rounded-full bg-sidebar-primary" />}
+                </Link>
+              );
+            },
+          )}
         </nav>
         <div className="space-y-2 p-3">
           {!readOnly && (
@@ -139,8 +139,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="no-print mb-4 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>
-              Tu suscripción venció: estás en <strong>modo lectura</strong>. Puedes cobrar y consultar,
-              pero no crear préstamos ni clientes nuevos. Contacta al administrador para renovarla.
+              Tu suscripción venció: estás en <strong>modo lectura</strong>. Puedes cobrar y
+              consultar, pero no crear préstamos ni clientes nuevos. Contacta al administrador para
+              renovarla.
             </span>
           </div>
         )}
@@ -168,24 +169,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
               <div className="p-2">
-                {MOBILE_EXTRA.filter((n) => !(hideReports && n.to === "/reports")).map(({ to, label, icon: Icon }) => {
-                  const active = pathname === to || pathname.startsWith(`${to}/`);
-                  return (
-                    <Link
-                      key={to}
-                      to={to}
-                      className={cn(
-                        "flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
-                        active
-                          ? "bg-secondary text-foreground"
-                          : "text-muted-foreground hover:bg-secondary",
-                      )}
-                    >
-                      <Icon className="size-5" />
-                      {label}
-                    </Link>
-                  );
-                })}
+                {MOBILE_EXTRA.filter((n) => !(hideReports && n.to === "/reports")).map(
+                  ({ to, label, icon: Icon }) => {
+                    const active = pathname === to || pathname.startsWith(`${to}/`);
+                    return (
+                      <Link
+                        key={to}
+                        to={to}
+                        className={cn(
+                          "flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-secondary text-foreground"
+                            : "text-muted-foreground hover:bg-secondary",
+                        )}
+                      >
+                        <Icon className="size-5" />
+                        {label}
+                      </Link>
+                    );
+                  },
+                )}
                 <button
                   onClick={signOut}
                   className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
@@ -200,7 +203,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Navegación inferior móvil */}
-      <nav className="no-print fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-border bg-card/95 backdrop-blur lg:hidden">
+      <nav className="no-print fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card/95 backdrop-blur lg:hidden">
         {MOBILE_NAV.map(({ to, label, icon: Icon }) => {
           const active = pathname === to || pathname.startsWith(`${to}/`);
           return (
@@ -208,12 +211,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               key={to}
               to={to}
               className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-1 px-0.5 text-[11px] font-medium",
+                "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 text-[11px] font-medium",
                 active ? "text-accent-foreground" : "text-muted-foreground",
               )}
             >
-              <Icon className={cn("size-5", active && "text-foreground")} />
-              <span className="w-full truncate text-center leading-none">{label}</span>
+              <Icon className={cn("size-5 shrink-0", active && "text-foreground")} />
+              <span className="w-full truncate whitespace-nowrap text-center leading-none">
+                {label}
+              </span>
             </Link>
           );
         })}
@@ -221,12 +226,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onClick={() => setMoreOpen((v) => !v)}
           aria-expanded={moreOpen}
           className={cn(
-            "flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium",
+            "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium",
             moreActive || moreOpen ? "text-accent-foreground" : "text-muted-foreground",
           )}
         >
-          <MoreHorizontal className={cn("size-5", (moreActive || moreOpen) && "text-foreground")} />
-          <span className="w-full text-center leading-none">Más</span>
+          <MoreHorizontal
+            className={cn("size-5 shrink-0", (moreActive || moreOpen) && "text-foreground")}
+          />
+          <span className="w-full truncate whitespace-nowrap text-center leading-none">Más</span>
         </button>
       </nav>
     </div>
@@ -252,8 +259,3 @@ export function PageHeader({
     </div>
   );
 }
-
-
-
-
-

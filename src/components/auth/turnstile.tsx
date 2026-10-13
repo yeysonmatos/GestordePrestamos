@@ -43,6 +43,7 @@ export const TurnstileCaptcha = forwardRef<TurnstileHandle>(function TurnstileCa
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   const tokenRef = useRef<string | null>(null);
+  const executingRef = useRef(false);
 
   useEffect(() => {
     if (!SITE_KEY) return;
@@ -54,13 +55,17 @@ export const TurnstileCaptcha = forwardRef<TurnstileHandle>(function TurnstileCa
           sitekey: SITE_KEY,
           theme: "auto",
           size: "normal",
+          appearance: "interaction-only",
           callback: (token: string) => {
+            executingRef.current = false;
             tokenRef.current = token;
           },
           "expired-callback": () => {
+            executingRef.current = false;
             tokenRef.current = null;
           },
           "error-callback": () => {
+            executingRef.current = false;
             tokenRef.current = null;
           },
         });
@@ -77,6 +82,7 @@ export const TurnstileCaptcha = forwardRef<TurnstileHandle>(function TurnstileCa
       }
       widgetIdRef.current = null;
       tokenRef.current = null;
+      executingRef.current = false;
     };
   }, []);
 
@@ -89,9 +95,12 @@ export const TurnstileCaptcha = forwardRef<TurnstileHandle>(function TurnstileCa
       tokenRef.current = ts.getResponse(id) ?? tokenRef.current;
       if (!tokenRef.current) {
         try {
-          // dispara el reto si hace falta; sin esperar largo: si el usuario aun
-          // no resuelve, el proximo submit tendra el token (o Supabase lo pedira)
-          ts.execute(id);
+          // dispara el reto si hace falta; con "interaction-only" el usuario ve la
+          // caja solo cuando Cloudflare pide confirmacion (la mayoria no la vera)
+          if (!executingRef.current) {
+            executingRef.current = true;
+            ts.execute(id);
+          }
         } catch {
           /* no disponible aun */
         }
@@ -104,6 +113,7 @@ export const TurnstileCaptcha = forwardRef<TurnstileHandle>(function TurnstileCa
     },
     reset() {
       tokenRef.current = null;
+      executingRef.current = false;
       try {
         if (widgetIdRef.current) window.turnstile?.reset(widgetIdRef.current);
       } catch {

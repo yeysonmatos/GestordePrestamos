@@ -17,7 +17,10 @@ export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({
     meta: [
       { title: "Reportes | Gestor de Prestamos" },
-      { name: "description", content: "Ingresos, cartera y morosidad por rango de fechas, con exportación." },
+      {
+        name: "description",
+        content: "Ingresos, cartera y morosidad por rango de fechas, con exportación.",
+      },
       { property: "og:title", content: "Reportes | Gestor de Prestamos" },
       { property: "og:description", content: "Resultados de tu cartera por rango de fechas." },
     ],
@@ -165,14 +168,26 @@ function Reports() {
         }
       />
 
-        <div className="no-print mb-4 grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-md">
-        <div className="min-w-0 space-y-1.5">
+      <div className="no-print mb-4 flex w-full max-w-md flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <Label htmlFor="desde">Desde</Label>
-          <Input id="desde" type="date" className="h-11 w-full min-w-0" value={desde} onChange={(e) => setDesde(e.target.value)} />
+          <Input
+            id="desde"
+            type="date"
+            className="h-11 w-full min-w-0"
+            value={desde}
+            onChange={(e) => setDesde(e.target.value)}
+          />
         </div>
-        <div className="min-w-0 space-y-1.5">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <Label htmlFor="hasta">Hasta</Label>
-          <Input id="hasta" type="date" className="h-11 w-full min-w-0" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+          <Input
+            id="hasta"
+            type="date"
+            className="h-11 w-full min-w-0"
+            value={hasta}
+            onChange={(e) => setHasta(e.target.value)}
+          />
         </div>
       </div>
 
@@ -233,11 +248,19 @@ function Reports() {
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <Mini
             label="En curso"
-            value={loans.filter((l) => l.status === "en_curso" && String(l.start_date).slice(0, 10) <= hasta).length}
+            value={
+              loans.filter(
+                (l) => l.status === "en_curso" && String(l.start_date).slice(0, 10) <= hasta,
+              ).length
+            }
           />
           <Mini
             label="Pagados"
-            value={loans.filter((l) => l.status === "pagado" && String(l.start_date).slice(0, 10) <= hasta).length}
+            value={
+              loans.filter(
+                (l) => l.status === "pagado" && String(l.start_date).slice(0, 10) <= hasta,
+              ).length
+            }
           />
           <Mini label="Archivados" value={loans.filter((l) => l.status === "archivado").length} />
         </div>
@@ -246,7 +269,15 @@ function Reports() {
   );
 }
 
-function Card({ label, value, tone }: { label: string; value: number; tone?: "success" | "danger" }) {
+function Card({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "success" | "danger";
+}) {
   const color = tone === "success" ? "text-success" : tone === "danger" ? "text-destructive" : "";
   return (
     <div className="surface p-4">
