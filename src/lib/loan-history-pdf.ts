@@ -172,7 +172,7 @@ export async function buildLoanHistoryPdf(d: LoanHistoryData): Promise<Blob> {
 /** Genera el historial y lo comparte (PWA) o lo descarga. */
 export async function shareLoanHistoryPdf(d: LoanHistoryData): Promise<"shared" | "downloaded"> {
   const blob = await buildLoanHistoryPdf(d);
-  const name = `historial-${(d.loanDisplayId || "prestamo").replace(/[^\w-]/g, "")}.pdf`;
+  const name = `HISTORIAL-${(d.loanDisplayId || "prestamo").replace(/[^\w-]/g, "").toUpperCase()}.pdf`;
   const file = new File([blob], name, { type: "application/pdf" });
 
   const nav = navigator as Navigator & {

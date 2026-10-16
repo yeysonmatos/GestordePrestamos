@@ -86,7 +86,7 @@ export async function shareReceiptPdf(
   shareText?: string,
 ): Promise<"shared" | "downloaded"> {
   const blob = await buildReceiptPdf(r);
-  const name = `recibo-${r.paymentId.slice(0, 8)}.pdf`;
+  const name = `RECIBO-${r.paymentId.slice(0, 8).toUpperCase()}.pdf`;
   const file = new File([blob], name, { type: "application/pdf" });
 
   const nav = navigator as Navigator & {
