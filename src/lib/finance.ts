@@ -41,7 +41,20 @@ export function toISO(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"] as const;
+export const MONTHS_ES = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+] as const;
 
 function sdParts(d: Date): Record<string, string> {
   const f = new Intl.DateTimeFormat("en-GB", {
@@ -61,14 +74,29 @@ export function formatDate(iso: string | null | undefined): string {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return `${m[3]} ${MONTHS_ES[Number(m[2]) - 1]} ${m[1]}`;
   const p = sdParts(new Date(iso));
-  return `${p['day']} ${MONTHS_ES[Number(p['month']) - 1]} ${p['year']}`;
+  return `${p["day"]} ${MONTHS_ES[Number(p["month"]) - 1]} ${p["year"]}`;
 }
 
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return "-";
   const p = sdParts(new Date(value));
-  const meridiem = (p['dayPeriod'] || "").toLowerCase().startsWith("p") ? "p. m." : "a. m.";
-  return `${p['day']} ${MONTHS_ES[Number(p['month']) - 1]} ${p['year']} ${p['hour']}:${p['minute']} ${meridiem}`;
+  const meridiem = (p["dayPeriod"] || "").toLowerCase().startsWith("p") ? "p. m." : "a. m.";
+  return `${p["day"]} ${MONTHS_ES[Number(p["month"]) - 1]} ${p["year"]} ${p["hour"]}:${p["minute"]} ${meridiem}`;
+}
+
+/**
+ * Fecha para recibos en formato DD/MM/AAAA (y HH:MM si el valor trae hora).
+ * Evita el salto de zona horaria de los strings "yyyy-mm-dd" (UTC vs RD).
+ */
+export function formatReceiptDate(value: string | null | undefined): string {
+  if (!value) return "-";
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (m) {
+    const date = `${m[3]}/${m[2]}/${m[1]}`;
+    return m[4] && m[5] ? `${date} ${m[4]}:${m[5]}` : date;
+  }
+  const p = sdParts(new Date(value));
+  return `${p["day"]}/${p["month"]}/${p["year"]}`;
 }
 
 export function addPeriods(iso: string, frequency: Frequency, count: number): string {
@@ -211,7 +239,10 @@ export function nextDueDateAfter(
   paymentDay: number | null | undefined,
   from: string,
 ): string {
-  const day = Math.max(1, Math.min(31, Number(paymentDay) || Number(firstPaymentDate?.slice(8, 10)) || 1));
+  const day = Math.max(
+    1,
+    Math.min(31, Number(paymentDay) || Number(firstPaymentDate?.slice(8, 10)) || 1),
+  );
   const base = parseDate(from || todaySD());
   let year = base.getFullYear();
   let month = base.getMonth();
@@ -271,7 +302,8 @@ export function recalcFrenchSchedule(params: {
   firstPaymentDate: string;
   startFrom: number;
 }): ScheduleRow[] {
-  const { capital, remainingCount, monthlyRatePct, frequency, firstPaymentDate, startFrom } = params;
+  const { capital, remainingCount, monthlyRatePct, frequency, firstPaymentDate, startFrom } =
+    params;
   if (capital <= 0 || remainingCount <= 0) return [];
   const i = periodicRatePct(monthlyRatePct, frequency);
   const payment =

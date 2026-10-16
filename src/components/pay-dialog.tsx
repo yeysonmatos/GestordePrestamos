@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Money } from "@/components/money";
-import { lateFee, daysBetween, formatDate, formatDateTime, rd, todaySD } from "@/lib/finance";
+import { lateFee, daysBetween, formatDate, formatReceiptDate, rd, todaySD } from "@/lib/finance";
 import { payInstallment, payOpenInterest } from "@/lib/actions";
 import type { Installment, LoanWithClient } from "@/lib/db";
 import { buildReceiptMessage, whatsappUrl } from "@/lib/messages";
@@ -428,7 +428,7 @@ export function ReceiptDialog({
             <p className="text-xs text-muted-foreground">
               RECIBO #{receipt.paymentId.slice(0, 8).toUpperCase()}
             </p>
-            <p className="text-xs text-muted-foreground">{formatDateTime(receipt.date)}</p>
+            <p className="text-xs text-muted-foreground">{formatReceiptDate(receipt.date)}</p>
           </div>
           <div className="space-y-1 border-y border-border py-3">
             <Row label="Cliente" value={receipt.client} />

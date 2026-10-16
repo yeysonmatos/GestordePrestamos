@@ -441,26 +441,30 @@ export async function payCapital(params: {
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("Monto inválido");
   if (paymentDate && paymentDate > todaySD()) throw new Error("La fecha no puede ser futura");
 
-  const { error } = await supabase.from("payments").insert({
-    user_id,
-    loan_id: loan.id,
-    client_id: loan.client_id,
-    amount: round2(amount),
-    capital_amount: round2(amount),
-    interest_amount: 0,
-    late_amount: 0,
-    type: "capital_abono",
-    payment_date: paymentDate || todaySD(),
-    method: METHOD_TO_DB[method] ?? "cash",
-    notes: note || null,
-    status: "paid",
-  });
+  const { data: created, error } = await supabase
+    .from("payments")
+    .insert({
+      user_id,
+      loan_id: loan.id,
+      client_id: loan.client_id,
+      amount: round2(amount),
+      capital_amount: round2(amount),
+      interest_amount: 0,
+      late_amount: 0,
+      type: "capital_abono",
+      payment_date: paymentDate || todaySD(),
+      method: METHOD_TO_DB[method] ?? "cash",
+      notes: note || null,
+      status: "paid",
+    })
+    .select("id, amount, capital_amount, interest_amount, late_amount, payment_date, method")
+    .single();
   if (error) throw new Error(error.message);
 
   await applyCapitalRebalance(loan.id, round2(amount));
   await refreshLoanStatus(loan.id);
+  return { payment: created };
 }
-
 /** Liquidación anticipada: ver settlementQuote en finance.ts (función pura, testeable). */
 export { settlementQuote } from "@/lib/finance";
 
@@ -484,20 +488,24 @@ export async function settleLoan(params: {
         .eq("loan_id", loan.id)
         .neq("status", "paid");
 
-  const { error } = await supabase.from("payments").insert({
-    user_id,
-    loan_id: loan.id,
-    client_id: loan.client_id,
-    amount: round2(total),
-    capital_amount: capital,
-    interest_amount: round2(interest),
-    late_amount: round2(late),
-    type: "liquidation",
-    payment_date: todaySD(),
-    method: "cash",
-    notes: note || "Liquidación anticipada",
-    status: "paid",
-  });
+  const { data: created, error } = await supabase
+    .from("payments")
+    .insert({
+      user_id,
+      loan_id: loan.id,
+      client_id: loan.client_id,
+      amount: round2(total),
+      capital_amount: capital,
+      interest_amount: round2(interest),
+      late_amount: round2(late),
+      type: "liquidation",
+      payment_date: todaySD(),
+      method: "cash",
+      notes: note || "Liquidación anticipada",
+      status: "paid",
+    })
+    .select("id, amount, capital_amount, interest_amount, late_amount, payment_date, method")
+    .single();
   if (error) throw new Error(error.message);
 
   for (const inst of pendientes ?? []) {
@@ -515,6 +523,7 @@ export async function settleLoan(params: {
     .update({ status: "paid", paid_at: new Date().toISOString() })
     .eq("id", loan.id);
   await refreshLoanStatus(loan.id);
+  return { payment: created };
 }
 
 /** Recalcula una cuota desde los pagos validos vinculados (como recalculateInstallment de GP). */

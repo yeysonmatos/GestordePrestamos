@@ -1,4 +1,5 @@
 import type { Receipt } from "@/components/pay-dialog";
+import { formatReceiptDate } from "@/lib/finance";
 
 function money(n: number): string {
   return `RD$ ${Number(n || 0).toLocaleString("es-DO", { maximumFractionDigits: 2 })}`;
@@ -27,7 +28,7 @@ export async function buildReceiptPdf(r: Receipt): Promise<Blob> {
   doc.setFontSize(9);
   doc.setTextColor(120, 130, 145);
   doc.text(`RECIBO #${r.paymentId.slice(0, 8).toUpperCase()}`, M, y);
-  doc.text(r.date, right, y, { align: "right" });
+  doc.text(formatReceiptDate(r.date), right, y, { align: "right" });
   y += 16;
 
   doc.setDrawColor(226, 232, 240);

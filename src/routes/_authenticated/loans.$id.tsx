@@ -166,10 +166,39 @@ function LoanDetail() {
     }
     await run(async () => {
       try {
-        await payCapital({ loan: loan!, amount, method: metodo, paymentDate: abonoFecha });
+        const r = await payCapital({
+          loan: loan!,
+          amount,
+          method: metodo,
+          paymentDate: abonoFecha,
+        });
         await queryClient.invalidateQueries();
         toast.success("Abono a capital registrado");
         setAbono(null);
+        // Recibo del abono a capital.
+        setReceipt({
+          paymentId: r.payment.id,
+          business: profile?.business_name ?? "Gestor de Prestamos",
+          client: loan!.client?.full_name ?? "Cliente",
+          loanDisplayId: loan!.loan_id ?? "",
+          payType: "Abono a capital",
+          method:
+            {
+              efectivo: "Efectivo",
+              transferencia: "Transferencia",
+              deposito: "Depósito",
+              otro: "Otro",
+            }[metodo] ?? metodo,
+          amount,
+          capital: amount,
+          interest: 0,
+          late: 0,
+          date: r.payment.payment_date,
+          newBalance: Math.max(0, Number(loan!.remaining_amount) - amount),
+          phone: loan!.client?.phone ?? null,
+          whatsapp: loan!.client?.whatsapp ?? null,
+          notes: null,
+        });
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "No se pudo registrar");
       }
@@ -179,7 +208,7 @@ function LoanDetail() {
   async function doLiquidar() {
     await run(async () => {
       try {
-        await settleLoan({
+        const r = await settleLoan({
           loan: loan!,
           total: quote.total,
           interest: quote.interes,
@@ -188,6 +217,24 @@ function LoanDetail() {
         await queryClient.invalidateQueries();
         toast.success("Préstamo liquidado");
         setLiquidar(false);
+        // Recibo de la liquidación.
+        setReceipt({
+          paymentId: r.payment.id,
+          business: profile?.business_name ?? "Gestor de Prestamos",
+          client: loan!.client?.full_name ?? "Cliente",
+          loanDisplayId: loan!.loan_id ?? "",
+          payType: "Liquidación",
+          method: "Efectivo",
+          amount: quote.total,
+          capital: quote.capital,
+          interest: quote.interes,
+          late: quote.mora,
+          date: r.payment.payment_date,
+          newBalance: 0,
+          phone: loan!.client?.phone ?? null,
+          whatsapp: loan!.client?.whatsapp ?? null,
+          notes: null,
+        });
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "No se pudo liquidar");
       }
