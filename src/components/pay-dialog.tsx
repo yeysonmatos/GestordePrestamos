@@ -428,7 +428,7 @@ export function ReceiptDialog({
           <div className="text-center">
             <p className="font-display text-base font-bold">{receipt.business}</p>
             <p className="text-xs text-muted-foreground">
-              RECIBO #{receipt.paymentId.slice(0, 8).toUpperCase()}
+              RECIBO-{receipt.paymentId.slice(0, 8).toUpperCase()}
               {receipt.copy ? " · COPIA" : ""}
             </p>
             <p className="text-xs text-muted-foreground">{formatReceiptDate(receipt.date)}</p>
