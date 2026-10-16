@@ -494,10 +494,24 @@ function LoanDetail() {
       </div>
 
       <Tabs defaultValue="cuotas" className="mt-6">
-        <TabsList>
-          <TabsTrigger value="cuotas">{isOpen ? "Resumen" : "Cuotas"}</TabsTrigger>
-          <TabsTrigger value="pagos">Pagos ({payments.length})</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-2">
+          <TabsList>
+            <TabsTrigger value="cuotas">{isOpen ? "Resumen" : "Cuotas"}</TabsTrigger>
+            <TabsTrigger value="pagos">Pagos ({payments.length})</TabsTrigger>
+          </TabsList>
+          {payments.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={historialPdf}
+              disabled={busy}
+              aria-label="Historial de pagos (PDF)"
+              title="Historial de pagos (PDF)"
+            >
+              <FileText className="size-4" />
+            </Button>
+          )}
+        </div>
 
         <TabsContent value="cuotas" className="mt-4">
           {isOpen ? (
@@ -623,61 +637,47 @@ function LoanDetail() {
               Todavía no hay pagos registrados.
             </div>
           ) : (
-            <>
-              <div className="no-print mb-3 flex justify-end">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={historialPdf}
-                  disabled={busy}
-                  aria-label="Historial de pagos (PDF)"
-                  title="Historial de pagos (PDF)"
-                >
-                  <FileText className="size-4" />
-                </Button>
-              </div>
-              <div className="surface divide-y divide-border">
-                {payments.map((p) => (
-                  <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                    <div>
-                      <p className="text-sm font-semibold">
-                        {getPaymentLabel(p, {
-                          installmentNumber:
-                            installments.find((x) => x.id === p.installment_id)?.number ?? null,
-                        })}
-                        {p.reversed && <span className="ml-2 text-destructive">(revertido)</span>}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{formatDateTime(p.paid_at)}</p>
-                      {p.reversal_reason && (
-                        <p className="text-xs text-destructive">Motivo: {p.reversal_reason}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Money value={p.amount} className="font-semibold" />
-                      {p.id === lastPaidId && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => verRecibo(p)}
-                          aria-label="Reenviar recibo"
-                          title="Reenviar recibo"
-                        >
-                          <FileText className="size-4" />
-                        </Button>
-                      )}
-                      {!p.reversed && p.id === lastPaidId && (
-                        <Button size="sm" variant="ghost" onClick={() => setReverso(p.id)}>
-                          <Undo2 className="size-4" /> Revertir
-                        </Button>
-                      )}
-                    </div>
+            <div className="surface divide-y divide-border">
+              {payments.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {getPaymentLabel(p, {
+                        installmentNumber:
+                          installments.find((x) => x.id === p.installment_id)?.number ?? null,
+                      })}
+                      {p.reversed && <span className="ml-2 text-destructive">(revertido)</span>}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{formatDateTime(p.paid_at)}</p>
+                    {p.reversal_reason && (
+                      <p className="text-xs text-destructive">Motivo: {p.reversal_reason}</p>
+                    )}
                   </div>
-                ))}
-                <p className="p-3 text-xs text-muted-foreground">
-                  Solo el último pago registrado puede revertirse.
-                </p>
-              </div>
-            </>
+                  <div className="flex items-center gap-3">
+                    <Money value={p.amount} className="font-semibold" />
+                    {p.id === lastPaidId && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => verRecibo(p)}
+                        aria-label="Reenviar recibo"
+                        title="Reenviar recibo"
+                      >
+                        <FileText className="size-4" />
+                      </Button>
+                    )}
+                    {!p.reversed && p.id === lastPaidId && (
+                      <Button size="sm" variant="ghost" onClick={() => setReverso(p.id)}>
+                        <Undo2 className="size-4" /> Revertir
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="p-3 text-xs text-muted-foreground">
+                Solo el último pago registrado puede revertirse.
+              </p>
+            </div>
           )}
         </TabsContent>
       </Tabs>
