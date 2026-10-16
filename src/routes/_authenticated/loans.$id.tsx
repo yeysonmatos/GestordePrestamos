@@ -39,7 +39,15 @@ import {
   rd,
   todaySD,
 } from "@/lib/finance";
-import { archiveLoan, payCapital, payOpenInterest, reversePayment, settleLoan, settlementQuote, whatsappLink } from "@/lib/actions";
+import {
+  archiveLoan,
+  payCapital,
+  payOpenInterest,
+  reversePayment,
+  settleLoan,
+  settlementQuote,
+  whatsappLink,
+} from "@/lib/actions";
 import { getPaymentLabel } from "@/lib/payment-labels";
 
 export const Route = createFileRoute("/_authenticated/loans/$id")({
@@ -86,9 +94,7 @@ function LoanDetail() {
 
   const totals = useMemo(() => {
     if (loan?.open_ended) {
-      const pagado = payments
-        .filter((p) => !p.reversed)
-        .reduce((s, p) => s + Number(p.amount), 0);
+      const pagado = payments.filter((p) => !p.reversed).reduce((s, p) => s + Number(p.amount), 0);
       return {
         total: Number(loan.principal),
         pagado,
@@ -116,7 +122,10 @@ function LoanDetail() {
   const quote = useMemo(() => {
     if (!loan) return { capital: 0, interes: 0, mora: 0, total: 0, cuotas: 0 };
     const good = payments.filter((p) => !p.reversed);
-    const lastPaid = good.map((p) => p.paid_at).sort().pop();
+    const lastPaid = good
+      .map((p) => p.paid_at)
+      .sort()
+      .pop();
     const capitalPaid = good.reduce((s, p) => s + Number(p.principal_portion || 0), 0);
     return settlementQuote({
       loan,
@@ -170,7 +179,12 @@ function LoanDetail() {
   async function doLiquidar() {
     await run(async () => {
       try {
-        await settleLoan({ loan: loan!, total: quote.total, interest: quote.interes, late: quote.mora });
+        await settleLoan({
+          loan: loan!,
+          total: quote.total,
+          interest: quote.interes,
+          late: quote.mora,
+        });
         await queryClient.invalidateQueries();
         toast.success("Préstamo liquidado");
         setLiquidar(false);
@@ -206,10 +220,34 @@ function LoanDetail() {
     }
     await run(async () => {
       try {
-        await payOpenInterest({ loan: loan!, amount, method: metodo });
+        const r = await payOpenInterest({ loan: loan!, amount, method: metodo });
         await queryClient.invalidateQueries();
         toast.success("Interés cobrado");
         setInteres(null);
+        // Recibo del pago de interés (mismo modal que los pagos de cuota).
+        setReceipt({
+          paymentId: r.payment.id,
+          business: profile?.business_name ?? "Gestor de Prestamos",
+          client: loan!.client?.full_name ?? "Cliente",
+          loanDisplayId: loan!.loan_id ?? "",
+          payType: "Interés",
+          method:
+            {
+              efectivo: "Efectivo",
+              transferencia: "Transferencia",
+              deposito: "Depósito",
+              otro: "Otro",
+            }[metodo] ?? metodo,
+          amount,
+          capital: 0,
+          interest: amount,
+          late: 0,
+          date: r.payment.payment_date,
+          newBalance: Math.max(0, Number(loan!.remaining_amount)),
+          phone: loan!.client?.phone ?? null,
+          whatsapp: loan!.client?.whatsapp ?? null,
+          notes: null,
+        });
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "No se pudo registrar");
       }
@@ -257,7 +295,9 @@ function LoanDetail() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  navigator.clipboard.writeText(mensaje).then(() => toast.info("Mensaje copiado (sin teléfono)"));
+                  navigator.clipboard
+                    .writeText(mensaje)
+                    .then(() => toast.info("Mensaje copiado (sin teléfono)"));
                 }}
               >
                 <MessageCircle className="size-4" /> Copiar mensaje
@@ -281,11 +321,17 @@ function LoanDetail() {
       </div>
 
       <div className="no-print mt-4 flex flex-wrap gap-2">
-        <Chip tone={loan.status === "en_curso" ? "info" : loan.status === "pagado" ? "success" : "neutral"}>
+        <Chip
+          tone={
+            loan.status === "en_curso" ? "info" : loan.status === "pagado" ? "success" : "neutral"
+          }
+        >
           {LOAN_STATUS_LABEL[loan.status] ?? loan.status}
         </Chip>
         {!isOpen && installments.length > 0 && (
-          <Chip tone="neutral">{pagadasCount}/{installments.length} pagadas</Chip>
+          <Chip tone="neutral">
+            {pagadasCount}/{installments.length} pagadas
+          </Chip>
         )}
         {totals.vencidas > 0 && <Chip tone="danger">{totals.vencidas} cuotas vencidas</Chip>}
         <div className="ml-auto flex flex-wrap gap-2">
@@ -344,8 +390,9 @@ function LoanDetail() {
                 </p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   El cliente paga {loan.interest_rate}% mensual (
-                  {Math.round(periodicRatePct(loan.interest_rate, loan.frequency) * 10000) / 100}% por
-                  pago {loan.frequency}) y devuelve el capital ({rd(Number(loan.principal))}) al liquidar.
+                  {Math.round(periodicRatePct(loan.interest_rate, loan.frequency) * 10000) / 100}%
+                  por pago {loan.frequency}) y devuelve el capital ({rd(Number(loan.principal))}) al
+                  liquidar.
                 </p>
               </div>
               <div className="surface p-4">
@@ -378,69 +425,73 @@ function LoanDetail() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {installments.map((i) => {
-              const st = installmentStatus(i);
-              const pending = Number(i.total_amount) - Number(i.paid_amount);
-              const mora = lateFee({
-                dueDate: i.due_date,
-                pending,
-                lateFeeRate: Number(loan.late_fee_rate),
-              });
-              return (
-                <div key={i.id} className="surface p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-display text-sm font-semibold">Cuota {i.number}</p>
-                      {st === "pagada" ? (
-                        <p className="text-xs text-muted-foreground">Pagada {formatDate(i.paid_at ?? i.due_date)}</p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">Vence {formatDate(i.due_date)}</p>
-                      )}
+                const st = installmentStatus(i);
+                const pending = Number(i.total_amount) - Number(i.paid_amount);
+                const mora = lateFee({
+                  dueDate: i.due_date,
+                  pending,
+                  lateFeeRate: Number(loan.late_fee_rate),
+                });
+                return (
+                  <div key={i.id} className="surface p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-display text-sm font-semibold">Cuota {i.number}</p>
+                        {st === "pagada" ? (
+                          <p className="text-xs text-muted-foreground">
+                            Pagada {formatDate(i.paid_at ?? i.due_date)}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Vence {formatDate(i.due_date)}
+                          </p>
+                        )}
+                      </div>
+                      <StatusChip status={st} />
                     </div>
-                    <StatusChip status={st} />
+                    <div className="mt-3 flex items-end justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Cuota</p>
+                        <Money value={i.total_amount} className="font-semibold" />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Saldo</p>
+                        <Money value={pending} className="font-semibold" />
+                      </div>
+                    </div>
+                    {mora > 0 && (
+                      <p className="mt-2 text-xs font-semibold text-destructive">
+                        Mora acumulada {rd(mora)}
+                      </p>
+                    )}
+                    {st !== "pagada" && loan.status !== "archivado" && (
+                      <Button
+                        size="sm"
+                        variant="accent"
+                        className="mt-3 w-full"
+                        onClick={() =>
+                          setTarget({
+                            mode: "installment",
+                            loanId: loan.id,
+                            clientId: loan.client?.id ?? "",
+                            displayId: loan.loan_id ?? "",
+                            inst: i,
+                            clientName: loan.client?.full_name ?? "Cliente",
+                            phone: loan.client?.phone ?? null,
+                            whatsapp: loan.client?.whatsapp ?? null,
+                            businessName: profile?.business_name ?? "Mi Negocio",
+                            lateInterestRate: Number(loan.late_fee_rate),
+                            graceDays: profile?.grace_days ?? 0,
+                            prepaidBalance: loan.prepaid_balance ?? 0,
+                          })
+                        }
+                      >
+                        Registrar pago
+                      </Button>
+                    )}
                   </div>
-                  <div className="mt-3 flex items-end justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Cuota</p>
-                      <Money value={i.total_amount} className="font-semibold" />
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Saldo</p>
-                      <Money value={pending} className="font-semibold" />
-                    </div>
-                  </div>
-                  {mora > 0 && (
-                    <p className="mt-2 text-xs font-semibold text-destructive">
-                      Mora acumulada {rd(mora)}
-                    </p>
-                  )}
-                  {st !== "pagada" && loan.status !== "archivado" && (
-                    <Button
-                      size="sm"
-                      variant="accent"
-                      className="mt-3 w-full"
-                      onClick={() =>
-                        setTarget({
-                          mode: "installment",
-                          loanId: loan.id,
-                          clientId: loan.client?.id ?? "",
-                          displayId: loan.loan_id ?? "",
-                          inst: i,
-                          clientName: loan.client?.full_name ?? "Cliente",
-                          phone: loan.client?.phone ?? null,
-                          whatsapp: loan.client?.whatsapp ?? null,
-                          businessName: profile?.business_name ?? "Mi Negocio",
-                          lateInterestRate: Number(loan.late_fee_rate),
-                          graceDays: profile?.grace_days ?? 0,
-                          prepaidBalance: loan.prepaid_balance ?? 0,
-                        })
-                      }
-                    >
-                      Registrar pago
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -669,7 +720,9 @@ function LoanDetail() {
           </DialogHeader>
           <div className="space-y-4 text-sm leading-relaxed">
             <div className="text-center">
-              <p className="font-display text-lg font-bold">{profile?.business_name ?? "Mi Negocio"}</p>
+              <p className="font-display text-lg font-bold">
+                {profile?.business_name ?? "Mi Negocio"}
+              </p>
               <p className="text-xs text-muted-foreground">
                 Contrato de préstamo personal · Santo Domingo, R.D.
               </p>
@@ -689,9 +742,9 @@ function LoanDetail() {
                   Entre <strong>{profile?.business_name ?? "el prestamista"}</strong> y{" "}
                   <strong>{loan.client?.full_name}</strong> se acuerda un préstamo por{" "}
                   <strong>{rd(Number(loan.principal))}</strong>, a una tasa mensual de{" "}
-                  <strong>{loan.interest_rate}%</strong>, pagadero en{" "}
-                  <strong>{loan.term}</strong> cuotas de frecuencia <strong>{loan.frequency}</strong>,
-                  iniciando el <strong>{formatDate(loan.first_payment_date)}</strong>.
+                  <strong>{loan.interest_rate}%</strong>, pagadero en <strong>{loan.term}</strong>{" "}
+                  cuotas de frecuencia <strong>{loan.frequency}</strong>, iniciando el{" "}
+                  <strong>{formatDate(loan.first_payment_date)}</strong>.
                 </>
               )}
             </p>
@@ -714,27 +767,27 @@ function LoanDetail() {
             </p>
             {!isOpen && (
               <table className="w-full text-xs">
-              <thead className="bg-secondary text-left">
-                <tr>
-                  <th className="px-2 py-1">#</th>
-                  <th className="px-2 py-1">Vence</th>
-                  <th className="px-2 py-1 text-right">Capital</th>
-                  <th className="px-2 py-1 text-right">Interés</th>
-                  <th className="px-2 py-1 text-right">Cuota</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {installments.map((i) => (
-                  <tr key={i.id}>
-                    <td className="px-2 py-1">{i.number}</td>
-                    <td className="px-2 py-1">{formatDate(i.due_date)}</td>
-                    <td className="num px-2 py-1 text-right">{rd(Number(i.principal_amount))}</td>
-                    <td className="num px-2 py-1 text-right">{rd(Number(i.interest_amount))}</td>
-                    <td className="num px-2 py-1 text-right">{rd(Number(i.total_amount))}</td>
+                <thead className="bg-secondary text-left">
+                  <tr>
+                    <th className="px-2 py-1">#</th>
+                    <th className="px-2 py-1">Vence</th>
+                    <th className="px-2 py-1 text-right">Capital</th>
+                    <th className="px-2 py-1 text-right">Interés</th>
+                    <th className="px-2 py-1 text-right">Cuota</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {installments.map((i) => (
+                    <tr key={i.id}>
+                      <td className="px-2 py-1">{i.number}</td>
+                      <td className="px-2 py-1">{formatDate(i.due_date)}</td>
+                      <td className="num px-2 py-1 text-right">{rd(Number(i.principal_amount))}</td>
+                      <td className="num px-2 py-1 text-right">{rd(Number(i.interest_amount))}</td>
+                      <td className="num px-2 py-1 text-right">{rd(Number(i.total_amount))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
             <div className="grid grid-cols-2 gap-8 pt-8 text-center text-xs">
               <div className="border-t border-foreground pt-2">Prestamista</div>

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { shareReceiptPdf } from "@/lib/receipt-pdf";
 import {
   Select,
   SelectContent,
@@ -96,11 +97,16 @@ export function PayDialog({
   const rate = target?.mode === "installment" ? target.lateInterestRate : 0;
   const grace = target ? target.graceDays : 0;
   const mora = useMemo(
-    () => (target?.mode === "installment" ? lateFee({ dueDate, pending, lateFeeRate: rate, graceDays: grace }) : 0),
+    () =>
+      target?.mode === "installment"
+        ? lateFee({ dueDate, pending, lateFeeRate: rate, graceDays: grace })
+        : 0,
     [target, dueDate, pending, rate, grace],
   );
 
-  const prepaid = isOpen ? 0 : Number(target?.mode === "installment" ? (target.prepaidBalance ?? 0) : 0);
+  const prepaid = isOpen
+    ? 0
+    : Number(target?.mode === "installment" ? (target.prepaidBalance ?? 0) : 0);
   const daysLate = target?.mode === "installment" ? lateDays(target.inst.due_date, grace) : 0;
   const [includeMora, setIncludeMora] = useState(true);
   const [amount, setAmount] = useState<string | null>(null);
@@ -216,14 +222,16 @@ export function PayDialog({
             {target?.mode === "open"
               ? `${target.loan.client?.full_name ?? "Cliente"} · interés del período (préstamo abierto)`
               : target
-                 ? `${target.clientName} · Cuota ${target.inst.number} vence ${formatDate(target.inst.due_date)}`
+                ? `${target.clientName} · Cuota ${target.inst.number} vence ${formatDate(target.inst.due_date)}`
                 : ""}
           </DialogDescription>
         </DialogHeader>
 
         <div className="rounded-xl bg-secondary p-4 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">{isOpen ? "Interés del período" : "Saldo de la cuota"}</span>
+            <span className="text-muted-foreground">
+              {isOpen ? "Interés del período" : "Saldo de la cuota"}
+            </span>
             <Money value={pending} className="font-semibold" />
           </div>
           {paidBefore > 0 && (
@@ -390,18 +398,36 @@ export function ReceiptDialog({
     toast.success("Resumen copiado al portapapeles");
   }
 
+  async function descargarPdf() {
+    try {
+      const how = await shareReceiptPdf(receipt!, msg);
+      toast.success(how === "shared" ? "PDF listo para guardar o enviar" : "PDF descargado");
+    } catch {
+      // ultimo recurso: impresion del navegador (escritorio)
+      try {
+        window.print();
+      } catch {
+        toast.error("No se pudo generar el PDF");
+      }
+    }
+  }
+
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>✅ Pago registrado</DialogTitle>
-          <DialogDescription className="no-print">Guarda o comparte el recibo con el cliente.</DialogDescription>
+          <DialogDescription className="no-print">
+            Guarda o comparte el recibo con el cliente.
+          </DialogDescription>
         </DialogHeader>
 
         <div id="payment-receipt" className="space-y-3 text-sm">
           <div className="text-center">
             <p className="font-display text-base font-bold">{receipt.business}</p>
-            <p className="text-xs text-muted-foreground">RECIBO #{receipt.paymentId.slice(0, 8).toUpperCase()}</p>
+            <p className="text-xs text-muted-foreground">
+              RECIBO #{receipt.paymentId.slice(0, 8).toUpperCase()}
+            </p>
             <p className="text-xs text-muted-foreground">{formatDateTime(receipt.date)}</p>
           </div>
           <div className="space-y-1 border-y border-border py-3">
@@ -425,11 +451,13 @@ export function ReceiptDialog({
             <span>Total recibido</span>
             <span className="num">{rd(receipt.amount)}</span>
           </div>
-          <p className="text-xs text-muted-foreground">Nuevo balance del préstamo: {rd(receipt.newBalance)}</p>
+          <p className="text-xs text-muted-foreground">
+            Nuevo balance del préstamo: {rd(receipt.newBalance)}
+          </p>
         </div>
 
         <DialogFooter className="no-print gap-2 sm:grid sm:grid-cols-3">
-          <Button variant="secondary" className="min-h-11" onClick={() => window.print()}>
+          <Button variant="secondary" className="min-h-11" onClick={descargarPdf}>
             <Printer className="mr-1 size-4" /> PDF
           </Button>
           <Button variant="accent" className="min-h-11" onClick={sendWhatsApp}>
