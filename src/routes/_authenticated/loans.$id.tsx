@@ -2,7 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, FileText, MessageCircle, Pencil, Send, Undo2 } from "lucide-react";
+import {
+  Archive,
+  FileText,
+  MessageCircle,
+  Pencil,
+  Receipt as ReceiptIcon,
+  Undo2,
+} from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -586,9 +593,15 @@ function LoanDetail() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Money value={p.amount} className="font-semibold" />
-                    {!p.reversed && (
-                      <Button size="sm" variant="ghost" onClick={() => verRecibo(p)}>
-                        <Send className="size-4" /> Recibo
+                    {p.id === lastPaidId && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => verRecibo(p)}
+                        aria-label="Reenviar recibo"
+                        title="Reenviar recibo"
+                      >
+                        <ReceiptIcon className="size-4" />
                       </Button>
                     )}
                     {!p.reversed && p.id === lastPaidId && (
