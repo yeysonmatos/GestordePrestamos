@@ -2,14 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  Archive,
-  FileText,
-  MessageCircle,
-  Pencil,
-  Receipt as ReceiptIcon,
-  Undo2,
-} from "lucide-react";
+import { Archive, FileText, MessageCircle, Pencil, Undo2 } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,13 +28,11 @@ import { PayDialog, ReceiptDialog } from "@/components/pay-dialog";
 import type { PayTarget, Receipt } from "@/components/pay-dialog";
 import { buildClientMessage } from "@/lib/messages";
 import { receiptFromPayment } from "@/lib/receipt";
-import { shareLoanHistoryPdf } from "@/lib/loan-history-pdf";
 import { useGuardedAction } from "@/hooks/use-guarded-action";
 import { useInstallments, useLoan, usePayments, useProfile } from "@/lib/db";
 import {
   formatDate,
   formatDateTime,
-  formatReceiptDate,
   installmentStatus,
   lateFee,
   LOAN_STATUS_LABEL,
@@ -329,59 +320,6 @@ function LoanDetail() {
     );
   }
 
-  /** PDF con el historial de pagos del préstamo (para el deudor). */
-  async function historialPdf() {
-    if (!loan) return;
-    const rows = payments
-      .filter((p) => !p.reversed)
-      .slice()
-      .sort((a, b) =>
-        String(a.payment_date ?? a.paid_at).localeCompare(String(b.payment_date ?? b.paid_at)),
-      );
-    const totals = rows.reduce(
-      (acc, p) => ({
-        amount: acc.amount + Number(p.amount || 0),
-        capital: acc.capital + Number(p.principal_portion || 0),
-        interest: acc.interest + Number(p.interest_portion || 0),
-        late: acc.late + Number(p.late_fee || 0),
-      }),
-      { amount: 0, capital: 0, interest: 0, late: 0 },
-    );
-    const nextPending = installments.find((i) => installmentStatus(i) !== "pagada");
-    try {
-      const how = await shareLoanHistoryPdf({
-        business: profile?.business_name ?? "Gestor de Prestamos",
-        client: loan.client?.full_name ?? "Cliente",
-        loanDisplayId: loan.loan_id ?? "",
-        typeLabel: loan.open_ended ? "Solo interés (abierto)" : "Cuota fija",
-        principal: Number(loan.principal),
-        rateLabel: `${Number(loan.interest_rate)}% mensual`,
-        frequencyLabel: loan.frequency
-          ? loan.frequency.charAt(0).toUpperCase() + loan.frequency.slice(1)
-          : "—",
-        startLabel: formatDate(loan.start_date),
-        rows: rows.map((p) => ({
-          date: p.payment_date ?? p.paid_at,
-          concept: getPaymentLabel(p, {
-            installmentNumber: installments.find((x) => x.id === p.installment_id)?.number ?? null,
-            includeMethod: false,
-          }),
-          amount: Number(p.amount),
-          capital: Number(p.principal_portion),
-          interest: Number(p.interest_portion),
-          late: Number(p.late_fee),
-        })),
-        totals,
-        balance: Math.max(0, Number(loan.remaining_amount ?? 0)),
-        nextDue: nextPending ? formatDate(nextPending.due_date) : null,
-        issuedLabel: formatReceiptDate(todaySD()),
-      });
-      toast.success(how === "shared" ? "Historial listo para compartir" : "Historial descargado");
-    } catch {
-      toast.error("No se pudo generar el historial");
-    }
-  }
-
   async function toggleArchive() {
     await run(async () => {
       await archiveLoan(loan!.id, loan!.status !== "archivado");
@@ -630,60 +568,47 @@ function LoanDetail() {
               Todavía no hay pagos registrados.
             </div>
           ) : (
-            <>
-              <div className="no-print mb-3 flex justify-end">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="min-h-10"
-                  onClick={historialPdf}
-                  disabled={busy}
-                >
-                  <FileText className="mr-1 size-4" /> Historial (PDF)
-                </Button>
-              </div>
-              <div className="surface divide-y divide-border">
-                {payments.map((p) => (
-                  <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                    <div>
-                      <p className="text-sm font-semibold">
-                        {getPaymentLabel(p, {
-                          installmentNumber:
-                            installments.find((x) => x.id === p.installment_id)?.number ?? null,
-                        })}
-                        {p.reversed && <span className="ml-2 text-destructive">(revertido)</span>}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{formatDateTime(p.paid_at)}</p>
-                      {p.reversal_reason && (
-                        <p className="text-xs text-destructive">Motivo: {p.reversal_reason}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Money value={p.amount} className="font-semibold" />
-                      {p.id === lastPaidId && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => verRecibo(p)}
-                          aria-label="Reenviar recibo"
-                          title="Reenviar recibo"
-                        >
-                          <ReceiptIcon className="size-4" />
-                        </Button>
-                      )}
-                      {!p.reversed && p.id === lastPaidId && (
-                        <Button size="sm" variant="ghost" onClick={() => setReverso(p.id)}>
-                          <Undo2 className="size-4" /> Revertir
-                        </Button>
-                      )}
-                    </div>
+            <div className="surface divide-y divide-border">
+              {payments.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {getPaymentLabel(p, {
+                        installmentNumber:
+                          installments.find((x) => x.id === p.installment_id)?.number ?? null,
+                      })}
+                      {p.reversed && <span className="ml-2 text-destructive">(revertido)</span>}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{formatDateTime(p.paid_at)}</p>
+                    {p.reversal_reason && (
+                      <p className="text-xs text-destructive">Motivo: {p.reversal_reason}</p>
+                    )}
                   </div>
-                ))}
-                <p className="p-3 text-xs text-muted-foreground">
-                  Solo el último pago registrado puede revertirse.
-                </p>
-              </div>
-            </>
+                  <div className="flex items-center gap-3">
+                    <Money value={p.amount} className="font-semibold" />
+                    {p.id === lastPaidId && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => verRecibo(p)}
+                        aria-label="Reenviar recibo"
+                        title="Reenviar recibo"
+                      >
+                        <FileText className="size-4" />
+                      </Button>
+                    )}
+                    {!p.reversed && p.id === lastPaidId && (
+                      <Button size="sm" variant="ghost" onClick={() => setReverso(p.id)}>
+                        <Undo2 className="size-4" /> Revertir
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="p-3 text-xs text-muted-foreground">
+                Solo el último pago registrado puede revertirse.
+              </p>
+            </div>
           )}
         </TabsContent>
       </Tabs>
