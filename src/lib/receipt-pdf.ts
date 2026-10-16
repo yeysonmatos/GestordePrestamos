@@ -27,7 +27,7 @@ export async function buildReceiptPdf(r: Receipt): Promise<Blob> {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(120, 130, 145);
-  doc.text(`RECIBO #${r.paymentId.slice(0, 8).toUpperCase()}`, M, y);
+  doc.text(`RECIBO #${r.paymentId.slice(0, 8).toUpperCase()}${r.copy ? " · COPIA" : ""}`, M, y);
   doc.text(formatReceiptDate(r.date), right, y, { align: "right" });
   y += 16;
 

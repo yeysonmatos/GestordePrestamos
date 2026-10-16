@@ -79,6 +79,8 @@ export type Payment = {
   method: string;
   note: string | null;
   paid_at: string;
+  /** Fecha de pago elegida por el usuario (yyyy-mm-dd) — la que va en el recibo. */
+  payment_date: string | null;
   reversed: boolean;
   reversal_reason: string | null;
   created_at: string;
@@ -311,6 +313,7 @@ export function toPayment(r: PaymentRow): Payment {
     method: METHOD_TO_VIEW[r.method ?? ""] ?? r.method ?? "efectivo",
     note: r.notes,
     paid_at: r.created_at ?? new Date().toISOString(),
+    payment_date: r.payment_date ?? null,
     reversed: r.status === "reversed",
     reversal_reason: r.reversal_reason,
     created_at: r.created_at ?? new Date().toISOString(),
@@ -341,7 +344,12 @@ function toLoanWithClient(r: LoanEmbedded): LoanWithClient {
   return {
     ...toLoan(rest as LoanRow),
     client: client
-      ? { id: client.id, full_name: client.name, phone: client.phone, whatsapp: client.whatsapp ?? null }
+      ? {
+          id: client.id,
+          full_name: client.name,
+          phone: client.phone,
+          whatsapp: client.whatsapp ?? null,
+        }
       : null,
   };
 }
@@ -391,7 +399,12 @@ function toInstallmentFull(r: InstallmentEmbedded): InstallmentFull {
       first_payment_date: loanRest.first_payment_date ?? "",
       prepaid_balance: num(loanRest.prepaid_balance),
       client: client
-        ? { id: client.id, full_name: client.name, phone: client.phone, whatsapp: client.whatsapp ?? null }
+        ? {
+            id: client.id,
+            full_name: client.name,
+            phone: client.phone,
+            whatsapp: client.whatsapp ?? null,
+          }
         : null,
     },
   };
@@ -577,7 +590,9 @@ export function useSubscription() {
       if (!uid) return null;
       const { data, error } = await supabase
         .from("subscriptions")
-        .select("id, plan_id, status, starts_at, ends_at, plan:plans(name, price, billing_cycle, max_clients, max_loans)")
+        .select(
+          "id, plan_id, status, starts_at, ends_at, plan:plans(name, price, billing_cycle, max_clients, max_loans)",
+        )
         .eq("user_id", uid)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -586,9 +601,22 @@ export function useSubscription() {
         if (error.message.includes("0 rows") || error.code === "PGRST116") return null;
         throw new Error(error.message);
       }
-      const plan = data.plan && typeof data.plan === "object" && "name" in (data.plan as object)
-        ? (data.plan as { name: string; price: number; billing_cycle: string; max_clients: number | null; max_loans: number | null })
-        : ({} as { name: string; price: number; billing_cycle: string; max_clients: number | null; max_loans: number | null });
+      const plan =
+        data.plan && typeof data.plan === "object" && "name" in (data.plan as object)
+          ? (data.plan as {
+              name: string;
+              price: number;
+              billing_cycle: string;
+              max_clients: number | null;
+              max_loans: number | null;
+            })
+          : ({} as {
+              name: string;
+              price: number;
+              billing_cycle: string;
+              max_clients: number | null;
+              max_loans: number | null;
+            });
       return {
         id: data.id,
         plan_id: data.plan_id,

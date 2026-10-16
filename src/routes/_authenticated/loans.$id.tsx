@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, FileText, MessageCircle, Pencil, Undo2 } from "lucide-react";
+import { Archive, FileText, MessageCircle, Pencil, Send, Undo2 } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import { Chip, Money, StatusChip } from "@/components/money";
 import { PayDialog, ReceiptDialog } from "@/components/pay-dialog";
 import type { PayTarget, Receipt } from "@/components/pay-dialog";
 import { buildClientMessage } from "@/lib/messages";
+import { receiptFromPayment } from "@/lib/receipt";
 import { useGuardedAction } from "@/hooks/use-guarded-action";
 import { useInstallments, useLoan, usePayments, useProfile } from "@/lib/db";
 import {
@@ -301,6 +302,24 @@ function LoanDetail() {
     });
   }
 
+  /** Reenvía el recibo de un pago ya guardado (copia del original). */
+  function verRecibo(p: (typeof payments)[number]) {
+    if (!loan || p.reversed) return;
+    setReceipt(
+      receiptFromPayment({
+        payment: p,
+        loan,
+        clientName: loan.client?.full_name ?? "Cliente",
+        business: profile?.business_name ?? "Gestor de Prestamos",
+        phone: loan.client?.phone ?? null,
+        whatsapp: loan.client?.whatsapp ?? null,
+        installmentNumber: installments.find((x) => x.id === p.installment_id)?.number ?? null,
+        payments,
+        currentBalance: Number(loan.remaining_amount ?? 0),
+      }),
+    );
+  }
+
   async function toggleArchive() {
     await run(async () => {
       await archiveLoan(loan!.id, loan!.status !== "archivado");
@@ -567,6 +586,11 @@ function LoanDetail() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Money value={p.amount} className="font-semibold" />
+                    {!p.reversed && (
+                      <Button size="sm" variant="ghost" onClick={() => verRecibo(p)}>
+                        <Send className="size-4" /> Recibo
+                      </Button>
+                    )}
                     {!p.reversed && p.id === lastPaidId && (
                       <Button size="sm" variant="ghost" onClick={() => setReverso(p.id)}>
                         <Undo2 className="size-4" /> Revertir

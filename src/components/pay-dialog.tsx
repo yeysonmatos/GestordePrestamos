@@ -66,6 +66,8 @@ export type Receipt = {
   phone: string | null;
   whatsapp: string | null;
   notes?: string | null;
+  /** true cuando se reenvía un recibo de un pago ya guardado. */
+  copy?: boolean;
 };
 
 const METHOD_LABELS: Record<string, string> = {
@@ -427,6 +429,7 @@ export function ReceiptDialog({
             <p className="font-display text-base font-bold">{receipt.business}</p>
             <p className="text-xs text-muted-foreground">
               RECIBO #{receipt.paymentId.slice(0, 8).toUpperCase()}
+              {receipt.copy ? " · COPIA" : ""}
             </p>
             <p className="text-xs text-muted-foreground">{formatReceiptDate(receipt.date)}</p>
           </div>
