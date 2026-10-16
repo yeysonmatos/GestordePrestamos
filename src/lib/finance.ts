@@ -85,18 +85,15 @@ export function formatDateTime(value: string | null | undefined): string {
 }
 
 /**
- * Fecha para recibos en formato DD/MM/AAAA (y HH:MM si el valor trae hora).
- * Evita el salto de zona horaria de los strings "yyyy-mm-dd" (UTC vs RD).
+ * Fecha para recibos con el formato unico del sistema ("16 octubre 2026").
+ * Para valores "yyyy-mm-dd" evita el salto de zona horaria (UTC vs RD) que
+ * corria un dia; si el valor trae hora usa el formateador del sistema.
  */
 export function formatReceiptDate(value: string | null | undefined): string {
   if (!value) return "-";
-  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
-  if (m) {
-    const date = `${m[3]}/${m[2]}/${m[1]}`;
-    return m[4] && m[5] ? `${date} ${m[4]}:${m[5]}` : date;
-  }
-  const p = sdParts(new Date(value));
-  return `${p["day"]}/${p["month"]}/${p["year"]}`;
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${Number(m[3])} ${MONTHS_ES[Number(m[2]) - 1]} ${m[1]}`;
+  return formatDateTime(value);
 }
 
 export function addPeriods(iso: string, frequency: Frequency, count: number): string {
