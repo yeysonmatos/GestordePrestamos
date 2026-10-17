@@ -171,6 +171,7 @@ function LoansPage() {
                       {l.client?.full_name ?? "Cliente"}
                     </p>
                     <p className="text-xs text-muted-foreground">
+                      {l.loan_type === "solo_interes" ? "Solo interés" : "Cuota fija"} ·{" "}
                       {l.open_ended
                         ? `Abierto · ${l.interest_rate}%`
                         : `${l.term} cuotas ${l.frequency} · ${l.interest_rate}%`}
@@ -187,9 +188,6 @@ function LoansPage() {
                       }
                     >
                       {LOAN_STATUS_LABEL[l.status] ?? l.status}
-                    </Chip>
-                    <Chip tone="neutral">
-                      {l.loan_type === "solo_interes" ? "Solo interés" : "Cuota fija"}
                     </Chip>
                     {b.dias > 0 && <Chip tone="danger">Atrasado {b.dias}d</Chip>}
                   </div>
