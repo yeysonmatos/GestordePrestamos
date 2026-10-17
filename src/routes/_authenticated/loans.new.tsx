@@ -189,7 +189,7 @@ function NewLoan() {
         title={editId ? "Editar préstamo" : "Nuevo préstamo"}
         subtitle={
           editId
-            ? "Se recalculará el cronograma; puedes corregir el cliente si fue un error"
+            ? "Se recalculará el cronograma; el cliente no puede cambiarse"
             : "Revisa el cronograma antes de guardar"
         }
       />
@@ -222,7 +222,7 @@ function NewLoan() {
             <div className="surface space-y-4 p-5 lg:col-span-3">
               <div className="space-y-1.5">
                 <Label>Cliente *</Label>
-                <Select value={clientId} onValueChange={setClientId}>
+                <Select value={clientId} onValueChange={setClientId} disabled={!!editId}>
                   <SelectTrigger className="h-11">
                     <SelectValue placeholder="Escoge un cliente" />
                   </SelectTrigger>
