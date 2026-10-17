@@ -1,6 +1,8 @@
 // Crons de plataforma (portados de la app Next.js, fase A2/retencion):
 //  - /api/cron/backup            -> respaldo diario de TODOS los usuarios + purga por retencion
 //  - /api/cron/subscription-notify -> avisa al admin de trials vencidos (1x usuario por dia)
+//  - /api/cron/reconcile         -> "revisor de cuentas": verifica la integridad contable
+//                                   (reconcile_money) y AVISA AL ADMIN si hay descuadres
 // Protegidos con CRON_SECRET (Vercel envia "Authorization: Bearer $CRON_SECRET").
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -194,15 +196,129 @@ async function runTrialNotify(): Promise<Response> {
   return json({ ok: true, notified, users: (subs ?? []).length, queue, errors });
 }
 
+interface ReconcileReport {
+  ran?: boolean;
+  testable_loans?: number;
+  open_ended_skipped?: number;
+  payment_rows?: number;
+  clients_checked?: number;
+  error_count?: number;
+  errors?: Record<string, unknown>[];
+}
+
+/** Traduce un hallazgo del revisor a una frase entendible. */
+function describeReconcileError(e: Record<string, unknown>): string {
+  const type = String(e["type"] ?? "desconocido");
+  const who = String(e["client_name"] ?? e["loan_id"] ?? e["client_id"] ?? "");
+  const diff = e["diff"] == null ? null : Number(e["diff"]);
+  const difTxt = diff == null ? "" : ` — diferencia ${diff}`;
+  if (type === "client_balance_mismatch")
+    return `Cliente ${who}: el saldo guardado (${e["stored"]}) no coincide con el calculado (${e["computed"]})${difTxt}.`;
+  if (type === "loan_identity_mismatch")
+    return `Préstamo ${who}: lo prestado no coincide con lo cobrado + lo pendiente${difTxt}.`;
+  if (type === "payment_sum_mismatch")
+    return `Pago ${String(e["payment_id"] ?? "")}: el monto no coincide con capital + interés + mora${difTxt}.`;
+  return `${type}${who ? ` (${who})` : ""}: ${JSON.stringify(e)}`;
+}
+
+/**
+ * Revisor de cuentas: corre la verificación contable de toda la base y, si
+ * encuentra descuadres, avisa AL ADMIN por correo (el suscriptor no se toca:
+ * es control de calidad interno). Un correo por día como máximo (dedupe).
+ * Con ?test=1 fuerza un correo de prueba aunque no haya descuadres.
+ */
+async function runReconcile(request: Request): Promise<Response> {
+  const force = new URL(request.url).searchParams.get("test") === "1";
+
+  const { data, error } = await admin.rpc("reconcile_money", { p_user_id: null });
+  if (error) return json({ ok: false, error: `Error en la revisión: ${error.message}` }, 500);
+  const report = (typeof data === "string" ? JSON.parse(data) : data) as ReconcileReport | null;
+  if (!report) return json({ ok: false, error: "La revisión no devolvió datos" }, 500);
+
+  const errorCount = Number(report.error_count ?? 0);
+  let notified = false;
+  let skipped = false;
+
+  if (errorCount > 0 || force) {
+    const { data: adm } = await admin
+      .from("app_users")
+      .select("id")
+      .eq("role", "admin")
+      .limit(1)
+      .maybeSingle();
+    if (!adm) return json({ ok: false, error: "No hay usuario admin", report }, 500);
+
+    let adminEmail: string | null = null;
+    try {
+      const { data: u } = await admin.auth.admin.getUserById(adm.id);
+      adminEmail = u?.user?.email ?? null;
+    } catch {
+      adminEmail = null;
+    }
+    if (!adminEmail) return json({ ok: false, error: "Admin sin email", report }, 500);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const dedupeKey = `reconcile-${force ? "test" : "errors"}-${today}`;
+    const { data: dup } = await admin
+      .from("email_messages")
+      .select("id")
+      .eq("dedupe_key", dedupeKey)
+      .limit(1)
+      .maybeSingle();
+    if (dup && !force) {
+      skipped = true;
+    } else {
+      const items = (report.errors ?? [])
+        .slice(0, 25)
+        .map((e) => `<li>${describeReconcileError(e)}</li>`)
+        .join("");
+      const body =
+        errorCount === 0
+          ? `<p><strong>Prueba del revisor de cuentas</strong> (pedida a mano).</p>
+             <p>Resultado: <strong>0 descuadres</strong>. Todo consistente.</p>
+             <p>Resumen: ${report.testable_loans ?? 0} préstamos verificados, ${report.open_ended_skipped ?? 0} abiertos omitidos, ${report.clients_checked ?? 0} clientes revisados.</p>`
+          : `<p>El revisor de cuentas encontró <strong>${errorCount} descuadre(s)</strong>.</p>
+             <ul>${items}</ul>
+             <p>Resumen: ${report.testable_loans ?? 0} préstamos verificados, ${report.open_ended_skipped ?? 0} abiertos omitidos, ${report.clients_checked ?? 0} clientes revisados.</p>
+             <p>Se corrige recalculando las estadísticas del cliente afectado desde el panel de administración.</p>`;
+
+      const id = await enqueueAndSend(admin, {
+        recipientType: "admin",
+        recipientEmail: adminEmail,
+        templateKey: "reconcile_alert",
+        subject:
+          errorCount === 0
+            ? "Revisor de cuentas: prueba (todo consistente)"
+            : `Revisor de cuentas: ${errorCount} descuadre(s) detectado(s)`,
+        htmlBody: body,
+        eventType: "audit.reconcile",
+        entityType: "platform",
+        entityId: "reconcile",
+        dedupeKey,
+      });
+      notified = Boolean(id);
+    }
+  }
+
+  return json({ ok: true, errors: errorCount, notified, skipped, report });
+}
+
 export async function handleCronRequest(request: Request): Promise<Response | null> {
   const path = new URL(request.url).pathname;
-  if (path !== "/api/cron/backup" && path !== "/api/cron/subscription-notify") return null;
+  if (
+    path !== "/api/cron/backup" &&
+    path !== "/api/cron/subscription-notify" &&
+    path !== "/api/cron/reconcile"
+  )
+    return null;
   if (request.method !== "GET" && request.method !== "POST") {
     return json({ error: "Método no permitido" }, 405);
   }
   if (!authorized(request)) return json({ error: "No autorizado" }, 401);
   try {
-    return path === "/api/cron/backup" ? await runBackup() : await runTrialNotify();
+    if (path === "/api/cron/backup") return await runBackup();
+    if (path === "/api/cron/subscription-notify") return await runTrialNotify();
+    return await runReconcile(request);
   } catch (err) {
     return json({ ok: false, error: String((err as Error)?.message || err) }, 500);
   }
