@@ -358,6 +358,10 @@ function LoanDetail() {
   });
 
   const waNumber = loan.client?.whatsapp || loan.client?.phone;
+  const freqLabel = loan.frequency
+    ? loan.frequency.charAt(0).toUpperCase() + loan.frequency.slice(1)
+    : "—";
+  const lastDue = installments.length > 0 ? installments[installments.length - 1]?.due_date : null;
 
   return (
     <>
@@ -462,6 +466,29 @@ function LoanDetail() {
               Ver cliente
             </Link>
           </Button>
+        </div>
+      </div>
+
+      <div className="surface mt-4 p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Datos del préstamo
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+          <Dato label="Inicio (entrega)" value={formatDate(loan.start_date)} />
+          <Dato label="Primer pago" value={formatDate(loan.first_payment_date)} />
+          <Dato label="Frecuencia" value={freqLabel} />
+          <Dato label="Cuotas" value={isOpen ? "Abierto (solo interés)" : String(loan.term)} />
+          <Dato label="Tasa mensual" value={`${Number(loan.interest_rate)}%`} />
+          {Number(loan.late_fee_rate) > 0 && (
+            <Dato label="Mora diaria" value={`${Number(loan.late_fee_rate)}%`} />
+          )}
+          {isOpen && loan.payment_day ? (
+            <Dato label="Día de pago" value={`Día ${loan.payment_day}`} />
+          ) : null}
+          {!isOpen && lastDue ? (
+            <Dato label="Último vencimiento" value={formatDate(lastDue)} />
+          ) : null}
+          <Dato label="Nº de préstamo" value={loan.loan_id || "—"} />
         </div>
       </div>
 
@@ -877,6 +904,15 @@ function LoanDetail() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function Dato({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold">{value}</p>
+    </div>
   );
 }
 
