@@ -801,3 +801,27 @@ Inventario completo de los puntos auditados: Dashboard (8 tarjetas vía `get_loa
 - [ ] `src/lib/notify/actions.ts` + `src/lib/notify/queue.ts`: confiabilidad, flush y reintentos.
 - [ ] `src/components/loans/PaymentReceipt.tsx`: solo muestra Capital/Interés cuando `hasMora`.
 - [ ] Crear `/terminos` y enlazar privacidad/términos desde el registro.
+
+## Hoy — 17 Oct 2026 (sesión 2) · Bug del Select: cliente / frecuencia / tipo quedaban en blanco
+
+### Causa raíz (los 3 reportes del usuario eran el MISMO bug)
+- [x] **Síntoma 1**: al editar un préstamo el recuadro del cliente salía vacío ("Escoge un cliente") y deshabilitado; al guardar pedía cliente.
+- [x] **Síntoma 2**: la "Frecuencia de pago" salía vacía, la cuota se calculaba como **mensual** (162.75 en un préstamo **diario** de 101.84) y todas las cuotas mostraban **la misma fecha**.
+- [x] **Síntoma 3**: en un préstamo "solo interés" **desaparecía** la casilla "Sin límite de cuotas (préstamo abierto)".
+- [x] **Causa raíz común (probada con el diagnóstico temporal que el usuario copió)**: Radix (`Select`) renderiza un `<select>` nativo oculto (formularios/autofill); cuando su valor no coincide con ninguna opción —justo tras el prellenado— el navegador lo resetea a `""` y Radix **emite `onValueChange("")`**, que **borra el valor controlado**. Evidencia directa: la línea del usuario decía `del préstamo: «mensual»/«solo_interes»` vs `del formulario: «mensual»/«»` (y `abierto: no` ⇒ sin cronograma y sin casilla). Es una carrera, por eso era **intermitente**.
+- [x] **Arreglo en un solo punto** (`src/components/ui/select.tsx`, commit `a1cdf4b`): el `Select` base **ignora los cambios vacíos** (ningún Select de la app usa `""` como opción). Cubre los ~30 selects (cliente, frecuencia, tipo, método de pago, filtros y panel admin).
+- [x] **Blindajes** (`loans.new.tsx`): `safeFrequency` / `safeLoanType` / `safeFirstPayment` (si el estado trae un valor inválido, cae al del préstamo ⇒ la vista previa y el guardado nunca calculan con una frecuencia desconocida); la casilla de préstamo abierto y `isOpen` usan el tipo blindado; la vista previa muestra `—` (ya no `0.00`) cuando no hay cronograma.
+- [x] **Prellenado reforzado** (commit `4dcfa75`): el formulario se vuelve a prellenar siempre con el préstamo en pantalla (`prefilledFor` por id; antes un booleano "solo la primera vez").
+- [x] **Diagnóstico temporal** (línea ámbar, solo al editar) agregado para cazar la causa (`6e3f9d6`, `e4577ca`) y **retirado** al confirmar el usuario (`f138ef1`).
+- [x] **Verificado en producción** con sesión de prueba de `cliente.prueba@prestamos.com`: P777824 (abierto) → «mensual»/«solo_interes» + `abierto: sí` + **casilla visible** + `Cuota 900.00 / Abierto`; P953257 (diaria) → «diaria»/«cuota_fija» + `101.84` con fechas **16→25 oct**; P605223 (mensual) → `527.59` con 16 nov / 16 dic / 16 ene. `tsc`, eslint y build OK.
+- [x] **Higiene**: se colaron archivos temporales (uno con una **sesión de prueba** de `cliente.prueba`) dentro del commit `6e3f9d6`; se sacaron del tracking (`e34fbe1`), se agregó `tmp-*` a `.gitignore` y se **revocaron las sesiones** de esa cuenta (`delete from auth.sessions`). Deploys: `a1cdf4b` (arreglo raíz) y `f138ef1` (sin diagnóstico).
+
+### Hallazgo pendiente: cuotas fantasma en un préstamo abierto
+- [x] **Detectado**: **P403743** ("Cliente Prueba 07") está **abierto** (`open_ended=true`, `installments=0`) pero conserva **10 filas de cuotas** en `installments` (26.67 c/u, 16→25 oct). Es el **único caso** de toda la BD (consulta `having count(i.id) != 0` sobre abiertos).
+- [x] **Origen**: el `updateLoan` del 17 Oct 14:33 (paso a abierto) actualizó el préstamo pero el `DELETE` de sus cuotas **no surtió efecto**, y el código **no revisa el error del delete** (`.delete().eq(...)` sin `.select()` ⇒ un fallo de RLS/red es **silencioso**). El delete existe desde la base (`a671a3a` L177), así que **no** es una versión vieja.
+- [ ] **Pendiente (decisión del usuario)**: borrar esas 10 cuotas fantasma (no tienen pagos; el préstamo es abierto y se cobra por el interés del período en Cobros → Vencidos) y **endurecer** el delete en `updateLoan` (revisar `error` y lanzar si falla) para que no vuelva a pasar en silencio.
+
+### Aclaración (NO es bug): "En mora" de Inicio vs "Hoy" de Cobros
+- [x] **El usuario preguntó** por qué Inicio muestra *"En mora 128.51 · 2 clientes atrasados"* si el Total por cobrar de **Hoy** (128.51) aún no está atrasado.
+- [x] **Verificado con datos reales**: las cuotas **de hoy** (17/10) y las **atrasadas** (16/10) suman **exactamente lo mismo** porque ambos préstamos son **DIARIOS** con idéntica cuota cada día: P953257 (101.84) + P403743 (26.67) = 128.51 en ambos días. Inicio muestra las del **16/10** (correctamente atrasadas) y Cobros → Hoy las del **17/10** ⇒ coincidencia de montos.
+- [x] **Regla confirmada en código** (`src/lib/finance.ts` → `installmentStatus`): `daysBetween(due_date, todaySD()) > 0` ⇒ una cuota pasa a "vencida" **el día siguiente** de su vencimiento (hoy no cuenta), tal como esperaba el usuario.
