@@ -376,6 +376,12 @@ export async function payOpenInterest(params: {
   const user_id = await requireUserId();
   if (amount <= 0) throw new Error("Monto inválido");
 
+  // El pago cubre primero el interés del período; el resto se aplica a mora.
+  const total = round2(amount);
+  const interestDue = round2(Math.max(0, Number(loan.installment_amount) || 0));
+  const interest_amount = round2(Math.min(total, interestDue || total));
+  const late_amount = round2(Math.max(0, total - interest_amount));
+
   const { data: created, error } = await supabase
     .from("payments")
     .insert({
@@ -383,10 +389,10 @@ export async function payOpenInterest(params: {
       loan_id: loan.id,
       installment_id: null,
       client_id: loan.client_id,
-      amount: round2(amount),
+      amount: total,
       capital_amount: 0,
-      interest_amount: round2(amount),
-      late_amount: 0,
+      interest_amount,
+      late_amount,
       type: "installment",
       payment_date: params.paymentDate || todaySD(),
       method: METHOD_TO_DB[method] ?? "cash",

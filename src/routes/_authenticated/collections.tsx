@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Inbox, RefreshCw, Search } from "lucide-react";
+import { CheckCircle2, Inbox, MessageCircle, RefreshCw, Search } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,22 +12,27 @@ import type { PayTarget, Receipt } from "@/components/pay-dialog";
 import { useAllInstallments, useAllPayments, useLoans, useProfile } from "@/lib/db";
 import type { InstallmentFull, LoanWithClient } from "@/lib/db";
 import { getPaymentLabel } from "@/lib/payment-labels";
+import { buildCollectReminder, whatsappUrl } from "@/lib/messages";
 import {
+  addPeriods,
   daysBetween,
   formatDate,
   installmentStatus,
   lateFee,
   moraDays,
-  nextDueDateAfter,
   rd,
   todaySD,
 } from "@/lib/finance";
+import type { Frequency } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/collections")({
   head: () => ({
     meta: [
       { title: "Cobros | Gestor de Prestamos" },
-      { name: "description", content: "Cobros de hoy, vencidos, próximos e historial con mora calculada." },
+      {
+        name: "description",
+        content: "Cobros de hoy, vencidos, próximos e historial con mora calculada.",
+      },
       { property: "og:title", content: "Cobros | Gestor de Prestamos" },
       { property: "og:description", content: "Ruta de cobro del día con mora y días de gracia." },
     ],
@@ -39,7 +45,7 @@ type Tab = (typeof TABS)[number];
 
 type Row =
   | { kind: "installment"; id: string; inst: InstallmentFull; due: string }
-  | { kind: "open"; id: string; loanId: string };
+  | { kind: "open"; id: string; loanId: string; due: string };
 
 function Collections() {
   const { data: installments = [] } = useAllInstallments();
@@ -59,32 +65,43 @@ function Collections() {
   const loanById = useMemo(() => new Map(loans.map((l) => [l.id, l])), [loans]);
   const instById = useMemo(() => new Map(installments.map((i) => [i.id, i])), [installments]);
 
-  const openEndedRows = useMemo(
-    () =>
-      loans
-        .filter((l) => l.open_ended && l.status === "en_curso" && Number(l.installment_amount) > 0)
-        .map((l) => ({
-          id: `open_${l.id}`,
-          loan: l,
-          due: nextDueDateAfter(l.first_payment_date, l.payment_day, today),
-        })),
-    [loans, today],
-  );
+  const openEndedRows = useMemo(() => {
+    // Cada pago de interés (sin cuota y sin capital) cubre un período: el que se
+    // debe es el primero sin pagar, NO el próximo (ese era el bug de "Vencidos").
+    const periodosPagados = new Map<string, number>();
+    for (const p of payments) {
+      if (p.reversed || p.installment_id) continue;
+      if (Number(p.principal_portion) > 0) continue;
+      periodosPagados.set(p.loan_id, (periodosPagados.get(p.loan_id) ?? 0) + 1);
+    }
+    return loans
+      .filter((l) => l.open_ended && l.status === "en_curso" && Number(l.installment_amount) > 0)
+      .map((l) => ({
+        id: `open_${l.id}`,
+        loan: l,
+        due: addPeriods(
+          l.first_payment_date,
+          (l.frequency as Frequency) || "mensual",
+          periodosPagados.get(l.id) ?? 0,
+        ),
+      }));
+  }, [loans, payments]);
 
   const groups = useMemo(() => {
     const vivas = installments.filter(
       (i) => i.loan?.status === "en_curso" && installmentStatus(i) !== "pagada",
     );
     const instRows = (list: InstallmentFull[], test: (i: InstallmentFull) => boolean) =>
-      list.filter(test).map<Row>((i) => ({ kind: "installment", id: i.id, inst: i, due: i.due_date }));
+      list
+        .filter(test)
+        .map<Row>((i) => ({ kind: "installment", id: i.id, inst: i, due: i.due_date }));
     const openRows = (test: (due: string) => boolean) =>
-      openEndedRows.filter((o) => test(o.due)).map<Row>((o) => ({ kind: "open", id: o.id, loanId: o.loan.id }));
+      openEndedRows
+        .filter((o) => test(o.due))
+        .map<Row>((o) => ({ kind: "open", id: o.id, loanId: o.loan.id, due: o.due }));
 
     return {
-      Hoy: [
-        ...instRows(vivas, (i) => i.due_date === today),
-        ...openRows((d) => d === today),
-      ],
+      Hoy: [...instRows(vivas, (i) => i.due_date === today), ...openRows((d) => d === today)],
       Vencidos: [
         ...instRows(vivas, (i) => daysBetween(i.due_date, today) > 0),
         ...openRows((d) => d < today),
@@ -116,7 +133,8 @@ function Collections() {
 
   const rows = tab === "Historial" ? [] : groups[tab].filter(matches);
   const pendingTotal = rows.reduce((s, r) => {
-    if (r.kind === "installment") return s + (Number(r.inst.total_amount) - Number(r.inst.paid_amount));
+    if (r.kind === "installment")
+      return s + (Number(r.inst.total_amount) - Number(r.inst.paid_amount));
     return s + Number(loanById.get(r.loanId)?.installment_amount ?? 0);
   }, 0);
 
@@ -159,7 +177,13 @@ function Collections() {
         title="Cobros"
         subtitle={`Ruta del ${formatDate(today)}`}
         action={
-          <Button variant="secondary" size="sm" className="h-11 w-11 p-0" onClick={refresh} aria-label="Actualizar">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-11 w-11 p-0"
+            onClick={refresh}
+            aria-label="Actualizar"
+          >
             <RefreshCw className="size-4" />
           </Button>
         }
@@ -207,7 +231,11 @@ function Collections() {
 
       {tab === "Historial" ? (
         payments.length === 0 ? (
-          <Empty title="Sin cobros registrados" text="Los cobros aparecerán aquí cuando registres el primero." icon={Inbox} />
+          <Empty
+            title="Sin cobros registrados"
+            text="Los cobros aparecerán aquí cuando registres el primero."
+            icon={Inbox}
+          />
         ) : (
           <div className="surface divide-y divide-border">
             {hist.map((p) => {
@@ -219,7 +247,9 @@ function Collections() {
               return (
                 <div key={p.id} className="flex items-center justify-between gap-3 p-4">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{loan?.client?.full_name ?? "Cliente"}</p>
+                    <p className="truncate text-sm font-semibold">
+                      {loan?.client?.full_name ?? "Cliente"}
+                    </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {typeLabel} · {formatDate(p.paid_at)}
                       {p.note && !typeLabel.includes(p.note) ? ` · ${p.note}` : ""}
@@ -244,7 +274,13 @@ function Collections() {
         )
       ) : rows.length === 0 ? (
         <Empty
-          title={tab === "Vencidos" ? "Todo está al día" : tab === "Hoy" ? "No hay cobros para hoy" : "Nada próximo en 14 días"}
+          title={
+            tab === "Vencidos"
+              ? "Todo está al día"
+              : tab === "Hoy"
+                ? "No hay cobros para hoy"
+                : "Nada próximo en 14 días"
+          }
           text={q ? "Prueba con otro nombre o teléfono." : "Vuelve mañana o revisa los próximos."}
           icon={CheckCircle2}
         />
@@ -255,13 +291,21 @@ function Collections() {
               <OpenCard
                 key={row.id}
                 loan={loanById.get(row.loanId)}
-                due={nextDueDateAfter(loanById.get(row.loanId)?.first_payment_date, loanById.get(row.loanId)?.payment_day, today)}
+                due={row.due}
                 business={business}
                 grace={grace}
                 onPay={setTarget}
+                showReminder={tab === "Vencidos"}
               />
             ) : (
-              <CollectionCard key={row.id} inst={row.inst} grace={grace} business={business} onPay={setTarget} />
+              <CollectionCard
+                key={row.id}
+                inst={row.inst}
+                grace={grace}
+                business={business}
+                onPay={setTarget}
+                showReminder={tab === "Vencidos"}
+              />
             ),
           )}
         </div>
@@ -273,7 +317,15 @@ function Collections() {
   );
 }
 
-function Empty({ title, text, icon: Icon }: { title: string; text: string; icon: typeof CheckCircle2 }) {
+function Empty({
+  title,
+  text,
+  icon: Icon,
+}: {
+  title: string;
+  text: string;
+  icon: typeof CheckCircle2;
+}) {
   return (
     <div className="surface flex flex-col items-center gap-2 p-10 text-center">
       <Icon className="size-8 text-success" />
@@ -288,16 +340,36 @@ function CollectionCard({
   grace,
   business,
   onPay,
+  showReminder,
 }: {
   inst: InstallmentFull;
   grace: number;
   business: string;
   onPay: (t: PayTarget) => void;
+  showReminder?: boolean;
 }) {
   const pending = Number(inst.total_amount) - Number(inst.paid_amount);
   const rate = Number(inst.loan?.late_fee_rate ?? 0);
   const mora = lateFee({ dueDate: inst.due_date, pending, lateFeeRate: rate, graceDays: grace });
   const dias = moraDays(inst.due_date, grace);
+
+  /** Abre WhatsApp con el recordatorio de la cuota (o copia el mensaje si no hay teléfono). */
+  function recordar() {
+    const phone = inst.loan?.client?.whatsapp || inst.loan?.client?.phone;
+    const msg = buildCollectReminder({
+      clientName: inst.loan?.client?.full_name ?? "Cliente",
+      businessName: business,
+      kind: "installment",
+      lateDays: dias,
+      amount: pending,
+      mora,
+    });
+    if (phone) {
+      window.open(whatsappUrl(phone, msg), "_blank");
+      return;
+    }
+    navigator.clipboard.writeText(msg).then(() => toast.info("Sin teléfono: mensaje copiado"));
+  }
 
   return (
     <div className="surface p-4">
@@ -321,35 +393,51 @@ function CollectionCard({
       <div className="mt-3 flex items-end justify-between">
         <div>
           <p className="text-xs text-muted-foreground">
-            {Number(inst.paid_amount) > 0 ? `Restante (${rd(inst.paid_amount)} pagado)` : "Saldo de la cuota"}
+            {Number(inst.paid_amount) > 0
+              ? `Restante (${rd(inst.paid_amount)} pagado)`
+              : "Saldo de la cuota"}
           </p>
           <Money value={pending} className="font-display text-lg font-bold" />
         </div>
         {mora > 0 && <Chip tone="danger">Mora {rd(mora)}</Chip>}
       </div>
 
-      <Button
-        variant="accent"
-        className="mt-3 w-full min-h-11"
-        onClick={() =>
-          onPay({
-            mode: "installment",
-            loanId: inst.loan_id,
-            clientId: inst.loan?.client?.id ?? "",
-            displayId: inst.loan?.display_id ?? "",
-            inst,
-            clientName: inst.loan?.client?.full_name ?? "Cliente",
-            phone: inst.loan?.client?.phone ?? null,
-            whatsapp: inst.loan?.client?.whatsapp ?? null,
-            businessName: business,
-            lateInterestRate: rate,
-            graceDays: grace,
-            prepaidBalance: inst.loan?.prepaid_balance ?? 0,
-          })
-        }
-      >
-        Cobrar {rd(pending + mora)}
-      </Button>
+      <div className="mt-3 flex items-center gap-2">
+        <Button
+          variant="accent"
+          className="min-h-11 flex-1"
+          onClick={() =>
+            onPay({
+              mode: "installment",
+              loanId: inst.loan_id,
+              clientId: inst.loan?.client?.id ?? "",
+              displayId: inst.loan?.display_id ?? "",
+              inst,
+              clientName: inst.loan?.client?.full_name ?? "Cliente",
+              phone: inst.loan?.client?.phone ?? null,
+              whatsapp: inst.loan?.client?.whatsapp ?? null,
+              businessName: business,
+              lateInterestRate: rate,
+              graceDays: grace,
+              prepaidBalance: inst.loan?.prepaid_balance ?? 0,
+            })
+          }
+        >
+          Cobrar {rd(pending + mora)}
+        </Button>
+        {showReminder && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-h-11 w-11 shrink-0"
+            onClick={recordar}
+            aria-label="Recordar por WhatsApp"
+            title="Recordar por WhatsApp"
+          >
+            <MessageCircle className="size-5 text-success" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -360,15 +448,42 @@ function OpenCard({
   business,
   grace,
   onPay,
+  showReminder,
 }: {
   loan?: LoanWithClient | undefined;
   due: string;
   business: string;
   grace: number;
   onPay: (t: PayTarget) => void;
+  showReminder?: boolean;
 }) {
   if (!loan) return null;
-  const mora = lateFee({ dueDate: due, pending: Number(loan.installment_amount), lateFeeRate: Number(loan.late_fee_rate), graceDays: grace });
+  const mora = lateFee({
+    dueDate: due,
+    pending: Number(loan.installment_amount),
+    lateFeeRate: Number(loan.late_fee_rate),
+    graceDays: grace,
+  });
+  const dias = moraDays(due, grace);
+
+  /** Recordatorio del interés del período (abierto) por WhatsApp. */
+  function recordar() {
+    const phone = loan?.client?.whatsapp || loan?.client?.phone;
+    const msg = buildCollectReminder({
+      clientName: loan?.client?.full_name ?? "Cliente",
+      businessName: business,
+      kind: "interest",
+      lateDays: dias,
+      amount: Number(loan?.installment_amount ?? 0),
+      mora,
+      capitalPending: Number(loan?.remaining_amount ?? 0),
+    });
+    if (phone) {
+      window.open(whatsappUrl(phone, msg), "_blank");
+      return;
+    }
+    navigator.clipboard.writeText(msg).then(() => toast.info("Sin teléfono: mensaje copiado"));
+  }
 
   return (
     <div className="surface p-4">
@@ -383,23 +498,46 @@ function OpenCard({
           </Link>
           <p className="text-xs text-muted-foreground">
             Interés · vence {formatDate(due)}
+            {dias > 0 && ` · ${dias} día(s) atrasados`}
           </p>
         </div>
         <Chip tone="info">Abierto</Chip>
       </div>
       <div className="mt-3 flex items-end justify-between">
         <div>
-          <p className="text-xs text-muted-foreground">Interés del período · capital {rd(loan.remaining_amount)}</p>
-          <Money value={Number(loan.installment_amount)} className="font-display text-lg font-bold" />
+          <p className="text-xs text-muted-foreground">
+            Interés del período · capital {rd(loan.remaining_amount)}
+          </p>
+          <Money
+            value={Number(loan.installment_amount)}
+            className="font-display text-lg font-bold"
+          />
         </div>
+        {mora > 0 && <Chip tone="danger">Mora {rd(mora)}</Chip>}
       </div>
-      <Button
-        variant="accent"
-        className="mt-3 w-full min-h-11"
-        onClick={() => onPay({ mode: "open", loan, businessName: business, graceDays: grace })}
-      >
-        Cobrar {rd(Number(loan.installment_amount))}
-      </Button>
+      <div className="mt-3 flex items-center gap-2">
+        <Button
+          variant="accent"
+          className="min-h-11 flex-1"
+          onClick={() =>
+            onPay({ mode: "open", loan, businessName: business, graceDays: grace, dueDate: due })
+          }
+        >
+          Cobrar {rd(Number(loan.installment_amount) + mora)}
+        </Button>
+        {showReminder && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-h-11 w-11 shrink-0"
+            onClick={recordar}
+            aria-label="Recordar por WhatsApp"
+            title="Recordar por WhatsApp"
+          >
+            <MessageCircle className="size-5 text-success" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

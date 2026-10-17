@@ -27,6 +27,35 @@ export function buildClientMessage(params: {
   return msg;
 }
 
+/** Recordatorio de cobro para WhatsApp (cuota vencida o interés de préstamo abierto). */
+export function buildCollectReminder(params: {
+  clientName: string;
+  businessName?: string | null | undefined;
+  kind: "installment" | "interest";
+  lateDays?: number;
+  /** Monto pendiente: la cuota o el interés del período. */
+  amount: number;
+  mora?: number;
+  /** Solo en préstamos abiertos: capital que queda por pagar (informativo). */
+  capitalPending?: number | null;
+}): string {
+  const biz = params.businessName || "Gestor de Prestamos";
+  const cliente = params.clientName || "cliente";
+  const dias = Math.max(0, Number(params.lateDays ?? 0));
+  const mora = Number(params.mora ?? 0);
+  const total = Number(params.amount || 0) + mora;
+  const atraso = dias > 0 ? ` (vencido hace ${dias} día${dias === 1 ? "" : "s"})` : "";
+
+  let msg = `Hola ${cliente}, saludos de ${biz}. Tienes pendiente el pago de tu préstamo${atraso}: ${rd(params.amount)}`;
+  if (mora > 0) msg += ` + mora ${rd(mora)} = ${rd(total)}`;
+  msg += ".";
+  if (params.kind === "interest" && Number(params.capitalPending ?? 0) > 0) {
+    msg += `\nCapital pendiente: ${rd(Number(params.capitalPending))}`;
+  }
+  msg += `\nRecuerda ponerte al día con tus pagos. Gracias.`;
+  return msg;
+}
+
 /** Recibo de pago para WhatsApp. */
 export function buildReceiptMessage(params: {
   amount: number;
@@ -49,7 +78,12 @@ export function buildReceiptMessage(params: {
     `Fecha: ${formatDate(params.paymentDate)}`,
   ];
   if (params.notes) lines.push(`Nota: ${params.notes}`);
-  lines.push("", `Nuevo balance: ${rd(params.newBalance)}`, "", params.businessName || "Gestor de Prestamos");
+  lines.push(
+    "",
+    `Nuevo balance: ${rd(params.newBalance)}`,
+    "",
+    params.businessName || "Gestor de Prestamos",
+  );
   return lines.join("\n");
 }
 

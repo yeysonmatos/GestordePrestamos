@@ -5,14 +5,8 @@ import { PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Money } from "@/components/money";
 import { useAllInstallments, useAllPayments, useLoans } from "@/lib/db";
-import {
-  formatDate,
-  installmentStatus,
-  nextDueDateAfter,
-  rd,
-  todaySD,
-  toISO,
-} from "@/lib/finance";
+import { addPeriods, formatDate, installmentStatus, rd, todaySD, toISO } from "@/lib/finance";
+import type { Frequency } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({
@@ -28,8 +22,18 @@ export const Route = createFileRoute("/_authenticated/calendar")({
 
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const MESES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
 ];
 
 type DayInfo = { count: number; amount: number; overdue: number; collected: number };
@@ -47,17 +51,27 @@ function CalendarPage() {
 
   const loanById = useMemo(() => new Map(loans.map((l) => [l.id, l])), [loans]);
 
-  const openRows = useMemo(
-    () =>
-      loans
-        .filter((l) => l.open_ended && l.status === "en_curso" && Number(l.installment_amount) > 0)
-        .map((l) => ({
-          id: `open_${l.id}`,
-          loan: l,
-          due: nextDueDateAfter(l.first_payment_date, l.payment_day, today),
-        })),
-    [loans, today],
-  );
+  const openRows = useMemo(() => {
+    // Igual que Cobros: el período que se debe es el primero sin pagar
+    // (primer pago + pagos de interés hechos), no el próximo.
+    const periodosPagados = new Map<string, number>();
+    for (const p of payments) {
+      if (p.reversed || p.installment_id) continue;
+      if (Number(p.principal_portion) > 0) continue;
+      periodosPagados.set(p.loan_id, (periodosPagados.get(p.loan_id) ?? 0) + 1);
+    }
+    return loans
+      .filter((l) => l.open_ended && l.status === "en_curso" && Number(l.installment_amount) > 0)
+      .map((l) => ({
+        id: `open_${l.id}`,
+        loan: l,
+        due: addPeriods(
+          l.first_payment_date,
+          (l.frequency as Frequency) || "mensual",
+          periodosPagados.get(l.id) ?? 0,
+        ),
+      }));
+  }, [loans, payments]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, DayInfo>();
@@ -163,7 +177,9 @@ function CalendarPage() {
                         : "border-border hover:bg-secondary"
                   }`}
                 >
-                  <span className="text-[11px] font-semibold sm:text-xs">{Number(iso.slice(8, 10))}</span>
+                  <span className="text-[11px] font-semibold sm:text-xs">
+                    {Number(iso.slice(8, 10))}
+                  </span>
                   <span className="mt-auto flex w-full flex-col items-start gap-0.5">
                     {dueSum > 0 && (
                       <span
@@ -193,8 +209,12 @@ function CalendarPage() {
 
         <div className="surface p-4">
           <p className="font-display text-base font-semibold">{formatDate(selected)}</p>
-          {selectedInstallments.length === 0 && selectedOpen.length === 0 && selectedCollected.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">Sin vencimientos ni cobros este día.</p>
+          {selectedInstallments.length === 0 &&
+          selectedOpen.length === 0 &&
+          selectedCollected.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Sin vencimientos ni cobros este día.
+            </p>
           ) : (
             <div className="mt-3 space-y-2">
               {selectedInstallments.map((i) => (

@@ -32,6 +32,7 @@ import { shareLoanHistoryPdf } from "@/lib/loan-history-pdf";
 import { useGuardedAction } from "@/hooks/use-guarded-action";
 import { useInstallments, useLoan, usePayments, useProfile } from "@/lib/db";
 import {
+  addPeriods,
   formatDate,
   formatDateTime,
   formatReceiptDate,
@@ -42,10 +43,10 @@ import {
   rd,
   todaySD,
 } from "@/lib/finance";
+import type { Frequency } from "@/lib/finance";
 import {
   archiveLoan,
   payCapital,
-  payOpenInterest,
   reversePayment,
   settleLoan,
   settlementQuote,
@@ -81,7 +82,6 @@ function LoanDetail() {
   const [contrato, setContrato] = useState(false);
   const [reverso, setReverso] = useState<string | null>(null);
   const [motivo, setMotivo] = useState("");
-  const [interes, setInteres] = useState<string | null>(null);
   const [metodo, setMetodo] = useState("efectivo");
   const [abonoFecha, setAbonoFecha] = useState(todaySD());
 
@@ -150,6 +150,15 @@ function LoanDetail() {
       );
     return good.length > 0 ? String(good[good.length - 1]?.id ?? "") : null;
   }, [payments]);
+
+  /** Fecha del período de interés que se debe (abiertos): primer pago + pagos de interés ya hechos. */
+  const interesDueDate = useMemo(() => {
+    if (!loan?.open_ended) return null;
+    const hechos = payments.filter(
+      (p) => !p.reversed && !p.installment_id && Number(p.principal_portion) === 0,
+    ).length;
+    return addPeriods(loan.first_payment_date, (loan.frequency as Frequency) || "mensual", hechos);
+  }, [loan, payments]);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Cargando…</p>;
   if (!loan) return <p className="text-sm text-muted-foreground">Préstamo no encontrado.</p>;
@@ -258,48 +267,6 @@ function LoanDetail() {
         setMotivo("");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "No se pudo revertir");
-      }
-    });
-  }
-
-  async function doInteres() {
-    const amount = Number(interes);
-    if (!amount || amount <= 0) {
-      toast.error("Escribe un monto válido");
-      return;
-    }
-    await run(async () => {
-      try {
-        const r = await payOpenInterest({ loan: loan!, amount, method: metodo });
-        await queryClient.invalidateQueries();
-        toast.success("Interés cobrado");
-        setInteres(null);
-        // Recibo del pago de interés (mismo modal que los pagos de cuota).
-        setReceipt({
-          paymentId: r.payment.id,
-          business: profile?.business_name ?? "Gestor de Prestamos",
-          client: loan!.client?.full_name ?? "Cliente",
-          loanDisplayId: loan!.loan_id ?? "",
-          payType: "Interés",
-          method:
-            {
-              efectivo: "Efectivo",
-              transferencia: "Transferencia",
-              deposito: "Depósito",
-              otro: "Otro",
-            }[metodo] ?? metodo,
-          amount,
-          capital: 0,
-          interest: amount,
-          late: 0,
-          date: r.payment.payment_date,
-          newBalance: Math.max(0, Number(loan!.remaining_amount)),
-          phone: loan!.client?.phone ?? null,
-          whatsapp: loan!.client?.whatsapp ?? null,
-          notes: null,
-        });
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "No se pudo registrar");
       }
     });
   }
@@ -460,10 +427,15 @@ function LoanDetail() {
             <Button
               size="sm"
               variant="accent"
-              onClick={() => {
-                setInteres(String(Number(loan.installment_amount) || 0));
-                setMetodo("efectivo");
-              }}
+              onClick={() =>
+                setTarget({
+                  mode: "open",
+                  loan,
+                  businessName: profile?.business_name ?? "Mi Negocio",
+                  graceDays: profile?.grace_days ?? 0,
+                  ...(interesDueDate ? { dueDate: interesDueDate } : {}),
+                })
+              }
             >
               Cobrar interés
             </Button>
@@ -475,7 +447,7 @@ function LoanDetail() {
             Liquidar
           </Button>
           {editable && (
-            <Button size="sm" variant="secondary" asChild className="shadow-none">
+            <Button size="sm" variant="ghost" asChild>
               <Link to="/loans/new" search={{ client: undefined, edit: loan.id }}>
                 <Pencil className="size-4" /> Editar
               </Link>
@@ -746,49 +718,6 @@ function LoanDetail() {
           <DialogFooter>
             <Button variant="accent" className="w-full min-h-11" onClick={doAbono} disabled={busy}>
               {busy ? "Registrando…" : "Registrar abono"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Cobrar interés (préstamo abierto) */}
-      <Dialog open={interes !== null} onOpenChange={(o) => !o && setInteres(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Cobrar interés</DialogTitle>
-            <DialogDescription>
-              Préstamo abierto · el pago no reduce el capital pendiente.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="interes">Monto de interés</Label>
-              <Input
-                id="interes"
-                inputMode="decimal"
-                className="h-11"
-                value={interes ?? ""}
-                onChange={(e) => setInteres(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Forma de pago</Label>
-              <Select value={metodo} onValueChange={setMetodo}>
-                <SelectTrigger className="h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="efectivo">Efectivo</SelectItem>
-                  <SelectItem value="transferencia">Transferencia</SelectItem>
-                  <SelectItem value="deposito">Depósito</SelectItem>
-                  <SelectItem value="otro">Otro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="accent" className="w-full" onClick={doInteres} disabled={busy}>
-              {busy ? "Cobrando…" : "Confirmar cobro"}
             </Button>
           </DialogFooter>
         </DialogContent>

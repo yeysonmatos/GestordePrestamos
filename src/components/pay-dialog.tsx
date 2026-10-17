@@ -48,6 +48,8 @@ export type PayTarget =
       loan: LoanWithClient;
       businessName: string;
       graceDays: number;
+      /** Fecha del período de interés que se está cobrando (para calcular la mora). */
+      dueDate?: string;
     };
 
 export type Receipt = {
@@ -95,21 +97,28 @@ export function PayDialog({
     return Math.max(0, Number(target.inst.total_amount) - Number(target.inst.paid_amount));
   }, [target]);
 
-  const dueDate = target?.mode === "installment" ? target.inst.due_date : "";
-  const rate = target?.mode === "installment" ? target.lateInterestRate : 0;
+  const dueDate =
+    target?.mode === "installment"
+      ? target.inst.due_date
+      : target?.mode === "open"
+        ? (target.dueDate ?? "")
+        : "";
+  const rate =
+    target?.mode === "installment"
+      ? target.lateInterestRate
+      : target?.mode === "open"
+        ? Number(target.loan.late_fee_rate ?? 0)
+        : 0;
   const grace = target ? target.graceDays : 0;
   const mora = useMemo(
-    () =>
-      target?.mode === "installment"
-        ? lateFee({ dueDate, pending, lateFeeRate: rate, graceDays: grace })
-        : 0,
+    () => (target ? lateFee({ dueDate, pending, lateFeeRate: rate, graceDays: grace }) : 0),
     [target, dueDate, pending, rate, grace],
   );
 
   const prepaid = isOpen
     ? 0
     : Number(target?.mode === "installment" ? (target.prepaidBalance ?? 0) : 0);
-  const daysLate = target?.mode === "installment" ? lateDays(target.inst.due_date, grace) : 0;
+  const daysLate = target && dueDate ? lateDays(dueDate, grace) : 0;
   const [includeMora, setIncludeMora] = useState(true);
   const [amount, setAmount] = useState<string | null>(null);
   const [method, setMethod] = useState("efectivo");
@@ -154,12 +163,12 @@ export function PayDialog({
           business: target.businessName,
           client: target.loan.client?.full_name ?? "Cliente",
           loanDisplayId: target.loan.loan_id ?? "",
-          payType: "Interés",
+          payType: mora > 0 ? "Interés + mora" : "Interés",
           method: METHOD_LABELS[method] ?? method,
           amount: amountValue,
           capital: 0,
-          interest: amountValue,
-          late: 0,
+          interest: Number(r.payment.interest_amount),
+          late: Number(r.payment.late_amount),
           date: r.payment.payment_date,
           newBalance: Math.max(0, Number(target.loan.remaining_amount)),
           phone: target.loan.client?.phone ?? null,
@@ -248,9 +257,21 @@ export function PayDialog({
               <span className="num">−{rd(prepaid)}</span>
             </div>
           )}
+          {includeMora && mora > 0 && (
+            <div className="mt-1 flex justify-between text-xs text-destructive">
+              <span>Mora</span>
+              <span className="num">{rd(mora)}</span>
+            </div>
+          )}
+          {mora > 0 && (
+            <div className="mt-2 flex justify-between border-t border-border pt-2 font-semibold">
+              <span>Total a cobrar</span>
+              <span className="num">{rd(expectedTotal)}</span>
+            </div>
+          )}
         </div>
 
-        {!isOpen && mora > 0 && (
+        {mora > 0 && (
           <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border p-3 text-sm">
             <input
               type="checkbox"
