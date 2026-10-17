@@ -154,6 +154,7 @@ export async function updateLoan(id: string, input: NewLoanInput) {
   const { error: upErr } = await supabase
     .from("loans")
     .update({
+      client_id: input.client_id,
       amount: input.principal,
       interest_rate: input.interest_rate,
       total_amount: isOpen ? input.principal : totalAmount,
@@ -182,7 +183,7 @@ export async function updateLoan(id: string, input: NewLoanInput) {
   await supabase.from("installments").delete().eq("loan_id", id);
   const rows = schedule.map((r) => ({
     loan_id: id,
-    client_id: current.client_id,
+    client_id: input.client_id,
     number: r.number,
     due_date: r.due_date,
     amount: r.total_amount,
@@ -195,7 +196,11 @@ export async function updateLoan(id: string, input: NewLoanInput) {
     const { error: e3 } = await supabase.from("installments").insert(rows);
     if (e3) throw new Error(e3.message);
   }
-  await supabase.rpc("update_client_stats", { p_client_id: current.client_id });
+  // Recalcula las métricas del cliente nuevo y, si cambió, también del anterior.
+  await supabase.rpc("update_client_stats", { p_client_id: input.client_id });
+  if (current.client_id && current.client_id !== input.client_id) {
+    await supabase.rpc("update_client_stats", { p_client_id: current.client_id });
+  }
   await refreshLoanStatus(current.id);
 }
 

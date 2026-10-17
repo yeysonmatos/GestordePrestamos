@@ -43,7 +43,10 @@ export const Route = createFileRoute("/_authenticated/loans/new")({
   head: () => ({
     meta: [
       { title: "Nuevo préstamo | Gestor de Prestamos" },
-      { name: "description", content: "Crea un préstamo y mira el cronograma de cuotas antes de guardar." },
+      {
+        name: "description",
+        content: "Crea un préstamo y mira el cronograma de cuotas antes de guardar.",
+      },
       { property: "og:title", content: "Nuevo préstamo | Gestor de Prestamos" },
       { property: "og:description", content: "Crea un préstamo con vista previa del cronograma." },
     ],
@@ -118,7 +121,8 @@ function NewLoan() {
 
   const isOpen = loanType === "solo_interes" && openEnded;
   const interestPerPeriod =
-    Math.round((Number(principal) || 0) * periodicRatePct(Number(rate) || 0, frequency) * 100) / 100;
+    Math.round((Number(principal) || 0) * periodicRatePct(Number(rate) || 0, frequency) * 100) /
+    100;
 
   function onFrequency(v: Frequency) {
     setFrequency(v);
@@ -128,7 +132,9 @@ function NewLoan() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (limiteAlcanzado) {
-      toast.error(`Tu plan permite máximo ${limite} préstamos activos. Mejora de plan para crear más.`);
+      toast.error(
+        `Tu plan permite máximo ${limite} préstamos activos. Mejora de plan para crear más.`,
+      );
       return;
     }
     if (!clientId) {
@@ -181,7 +187,11 @@ function NewLoan() {
     <>
       <PageHeader
         title={editId ? "Editar préstamo" : "Nuevo préstamo"}
-        subtitle={editId ? "Se recalculará el cronograma; el cliente no puede cambiarse" : "Revisa el cronograma antes de guardar"}
+        subtitle={
+          editId
+            ? "Se recalculará el cronograma; puedes corregir el cliente si fue un error"
+            : "Revisa el cronograma antes de guardar"
+        }
       />
 
       {clients.length === 0 ? (
@@ -193,244 +203,259 @@ function NewLoan() {
         </div>
       ) : (
         <>
-      {limiteAlcanzado && (
-        <Alert className="mb-4 border-warning/40 bg-warning/10">
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              Tu plan <strong>{sub?.plan_name}</strong> permite máximo <strong>{limite}</strong>{" "}
-              préstamos activos y ya tienes {loans.filter((l) => l.status === "en_curso").length}.
-            </span>
-            <Button asChild size="sm" variant="accent">
-              <Link to="/pricing">Ver planes</Link>
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+          {limiteAlcanzado && (
+            <Alert className="mb-4 border-warning/40 bg-warning/10">
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Tu plan <strong>{sub?.plan_name}</strong> permite máximo <strong>{limite}</strong>{" "}
+                  préstamos activos y ya tienes{" "}
+                  {loans.filter((l) => l.status === "en_curso").length}.
+                </span>
+                <Button asChild size="sm" variant="accent">
+                  <Link to="/pricing">Ver planes</Link>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
-      <form onSubmit={submit} className="grid gap-4 lg:grid-cols-5">
-          <div className="surface space-y-4 p-5 lg:col-span-3">
-            <div className="space-y-1.5">
-              <Label>Cliente *</Label>
-              <Select value={clientId} onValueChange={setClientId} disabled={!!editId}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Escoge un cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
+          <form onSubmit={submit} className="grid gap-4 lg:grid-cols-5">
+            <div className="surface space-y-4 p-5 lg:col-span-3">
               <div className="space-y-1.5">
-                <Label htmlFor="principal">Monto prestado *</Label>
-                <Input
-                  id="principal"
-                  inputMode="decimal"
-                  className="h-11"
-                  value={principal}
-                  onChange={(e) => setPrincipal(e.target.value)}
-                  placeholder="25000"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="rate">Tasa mensual (%)</Label>
-                <Input
-                  id="rate"
-                  inputMode="decimal"
-                  className="h-11"
-                  placeholder="0"
-                  value={rate}
-                  onChange={(e) => setRate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Tipo de préstamo</Label>
-              <Select
-                value={loanType}
-                onValueChange={(v) => {
-                  const t = v as LoanType;
-                  setLoanType(t);
-                  if (t !== "solo_interes") setOpenEnded(false);
-                }}
-              >
-                <SelectTrigger className="h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LOAN_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {loanType === "solo_interes" && (
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={openEnded}
-                  onChange={(e) => setOpenEnded(e.target.checked)}
-                  className="h-4 w-4 rounded border-border"
-                />
-                Sin límite de cuotas (préstamo abierto)
-              </label>
-            )}
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Frecuencia de pago</Label>
-                <Select value={frequency} onValueChange={(v) => onFrequency(v as Frequency)}>
+                <Label>Cliente *</Label>
+                <Select value={clientId} onValueChange={setClientId}>
                   <SelectTrigger className="h-11">
-                    <SelectValue />
+                    <SelectValue placeholder="Escoge un cliente" />
                   </SelectTrigger>
                   <SelectContent>
-                    {FREQUENCIES.map((f) => (
-                      <SelectItem key={f.value} value={f.value}>
-                        {f.label}
+                    {editId &&
+                      editing?.client_id &&
+                      !clients.some((c) => c.id === editing.client_id) && (
+                        <SelectItem value={editing.client_id}>
+                          {editing.client?.full_name ?? "Cliente actual"}
+                        </SelectItem>
+                      )}
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              {isOpen ? (
+
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Cantidad de cuotas</Label>
-                  <p className="rounded-xl bg-secondary px-3 py-2.5 text-sm text-muted-foreground">
-                    Abierto — solo interés, el capital se paga al liquidar.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label htmlFor="term">Cantidad de cuotas</Label>
+                  <Label htmlFor="principal">Monto prestado *</Label>
                   <Input
-                    id="term"
-                    inputMode="numeric"
+                    id="principal"
+                    inputMode="decimal"
                     className="h-11"
-                    placeholder="0"
-                    value={term}
-                    onChange={(e) => setTerm(e.target.value)}
+                    value={principal}
+                    onChange={(e) => setPrincipal(e.target.value)}
+                    placeholder="25000"
                   />
                 </div>
-              )}
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="start">Fecha de entrega</Label>
-                <Input
-                  id="start"
-                  type="date"
-                  className="h-11"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setFirstPayment(addPeriods(e.target.value, frequency, 1));
-                  }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="first">Primer pago</Label>
-                <Input
-                  id="first"
-                  type="date"
-                  className="h-11"
-                  value={firstPayment}
-                  onChange={(e) => setFirstPayment(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="mora">Mora diaria sobre atraso (%)</Label>
-              <Input
-                id="mora"
-                inputMode="decimal"
-                className="h-11"
-                placeholder="0"
-                value={lateFee}
-                onChange={(e) => setLateFee(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="notas">Notas</Label>
-              <Textarea id="notas" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </div>
-
-            <Button type="submit" variant="accent" className="w-full" disabled={saving}>
-              {saving ? (editId ? "Guardando…" : "Creando…") : editId ? "Guardar cambios" : "Crear préstamo"}
-            </Button>
-          </div>
-
-          <div className="lg:col-span-2">
-            <div className="surface sticky top-4 p-5">
-              <h2 className="font-display text-base font-semibold">Vista previa</h2>
-              <div className="mt-3 space-y-2 text-sm">
-                <Row
-                  label="Cuota"
-                  value={rd(isOpen ? interestPerPeriod : totals.cuota)}
-                  strong
-                />
-                <Row label="Total a recibir" value={isOpen ? "Abierto" : rd(totals.total)} />
-                <Row
-                  label="Ganancia por interés"
-                  value={rd(isOpen ? interestPerPeriod : totals.interes)}
-                />
-                <Row label="Cuotas" value={isOpen ? "Abierto" : String(schedule.length)} />
-              </div>
-
-              {isOpen && (
-                <p className="mt-3 text-xs text-primary">
-                  Préstamo abierto: paga {rd(interestPerPeriod)} de interés cada período y el
-                  capital ({rd(Number(principal) || 0)}) al liquidar.
-                </p>
-              )}
-
-              {!isOpen && (
-                <div className="mt-4 max-h-80 overflow-auto rounded-xl border border-border">
-                  <table className="w-full text-xs">
-                    <thead className="sticky top-0 bg-secondary text-left">
-                      <tr>
-                        <th className="px-2 py-2">#</th>
-                        <th className="px-2 py-2">Vence</th>
-                        <th className="px-2 py-2 text-right">Cuota</th>
-                        <th className="px-2 py-2 text-right">Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {schedule.map((r) => (
-                        <tr key={r.number}>
-                          <td className="px-2 py-2">{r.number}</td>
-                          <td className="px-2 py-2">{formatDate(r.due_date)}</td>
-                          <td className="num px-2 py-2 text-right">{rd(r.total_amount)}</td>
-                          <td className="num px-2 py-2 text-right text-muted-foreground">
-                            {rd(r.balance)}
-                          </td>
-                        </tr>
-                      ))}
-                      {schedule.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="px-2 py-6 text-center text-muted-foreground">
-                            Escribe el monto y las cuotas.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rate">Tasa mensual (%)</Label>
+                  <Input
+                    id="rate"
+                    inputMode="decimal"
+                    className="h-11"
+                    placeholder="0"
+                    value={rate}
+                    onChange={(e) => setRate(e.target.value)}
+                  />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Tipo de préstamo</Label>
+                <Select
+                  value={loanType}
+                  onValueChange={(v) => {
+                    const t = v as LoanType;
+                    setLoanType(t);
+                    if (t !== "solo_interes") setOpenEnded(false);
+                  }}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOAN_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {loanType === "solo_interes" && (
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={openEnded}
+                    onChange={(e) => setOpenEnded(e.target.checked)}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  Sin límite de cuotas (préstamo abierto)
+                </label>
               )}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Frecuencia de pago</Label>
+                  <Select value={frequency} onValueChange={(v) => onFrequency(v as Frequency)}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FREQUENCIES.map((f) => (
+                        <SelectItem key={f.value} value={f.value}>
+                          {f.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {isOpen ? (
+                  <div className="space-y-1.5">
+                    <Label>Cantidad de cuotas</Label>
+                    <p className="rounded-xl bg-secondary px-3 py-2.5 text-sm text-muted-foreground">
+                      Abierto — solo interés, el capital se paga al liquidar.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="term">Cantidad de cuotas</Label>
+                    <Input
+                      id="term"
+                      inputMode="numeric"
+                      className="h-11"
+                      placeholder="0"
+                      value={term}
+                      onChange={(e) => setTerm(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="start">Fecha de entrega</Label>
+                  <Input
+                    id="start"
+                    type="date"
+                    className="h-11"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setFirstPayment(addPeriods(e.target.value, frequency, 1));
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="first">Primer pago</Label>
+                  <Input
+                    id="first"
+                    type="date"
+                    className="h-11"
+                    value={firstPayment}
+                    onChange={(e) => setFirstPayment(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="mora">Mora diaria sobre atraso (%)</Label>
+                <Input
+                  id="mora"
+                  inputMode="decimal"
+                  className="h-11"
+                  placeholder="0"
+                  value={lateFee}
+                  onChange={(e) => setLateFee(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="notas">Notas</Label>
+                <Textarea
+                  id="notas"
+                  rows={2}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
+
+              <Button type="submit" variant="accent" className="w-full" disabled={saving}>
+                {saving
+                  ? editId
+                    ? "Guardando…"
+                    : "Creando…"
+                  : editId
+                    ? "Guardar cambios"
+                    : "Crear préstamo"}
+              </Button>
             </div>
-          </div>
-        </form>
+
+            <div className="lg:col-span-2">
+              <div className="surface sticky top-4 p-5">
+                <h2 className="font-display text-base font-semibold">Vista previa</h2>
+                <div className="mt-3 space-y-2 text-sm">
+                  <Row label="Cuota" value={rd(isOpen ? interestPerPeriod : totals.cuota)} strong />
+                  <Row label="Total a recibir" value={isOpen ? "Abierto" : rd(totals.total)} />
+                  <Row
+                    label="Ganancia por interés"
+                    value={rd(isOpen ? interestPerPeriod : totals.interes)}
+                  />
+                  <Row label="Cuotas" value={isOpen ? "Abierto" : String(schedule.length)} />
+                </div>
+
+                {isOpen && (
+                  <p className="mt-3 text-xs text-primary">
+                    Préstamo abierto: paga {rd(interestPerPeriod)} de interés cada período y el
+                    capital ({rd(Number(principal) || 0)}) al liquidar.
+                  </p>
+                )}
+
+                {!isOpen && (
+                  <div className="mt-4 max-h-80 overflow-auto rounded-xl border border-border">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-secondary text-left">
+                        <tr>
+                          <th className="px-2 py-2">#</th>
+                          <th className="px-2 py-2">Vence</th>
+                          <th className="px-2 py-2 text-right">Cuota</th>
+                          <th className="px-2 py-2 text-right">Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {schedule.map((r) => (
+                          <tr key={r.number}>
+                            <td className="px-2 py-2">{r.number}</td>
+                            <td className="px-2 py-2">{formatDate(r.due_date)}</td>
+                            <td className="num px-2 py-2 text-right">{rd(r.total_amount)}</td>
+                            <td className="num px-2 py-2 text-right text-muted-foreground">
+                              {rd(r.balance)}
+                            </td>
+                          </tr>
+                        ))}
+                        {schedule.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="px-2 py-6 text-center text-muted-foreground">
+                              Escribe el monto y las cuotas.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </form>
         </>
       )}
     </>
