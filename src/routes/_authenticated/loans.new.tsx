@@ -137,7 +137,9 @@ function NewLoan() {
       );
       return;
     }
-    if (!clientId) {
+    // Al editar, el cliente es el del préstamo (no editable): nunca debe bloquear el guardado.
+    const effectiveClientId = clientId || (editId ? (editing?.client_id ?? "") : "");
+    if (!effectiveClientId) {
       toast.error("Escoge un cliente");
       return;
     }
@@ -152,7 +154,7 @@ function NewLoan() {
     setSaving(true);
     try {
       const payload = {
-        client_id: clientId,
+        client_id: effectiveClientId,
         principal: Number(principal),
         interest_rate: Number(rate),
         term: Number(term),
@@ -222,25 +224,27 @@ function NewLoan() {
             <div className="surface space-y-4 p-5 lg:col-span-3">
               <div className="space-y-1.5">
                 <Label>Cliente *</Label>
-                <Select value={clientId} onValueChange={setClientId} disabled={!!editId}>
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Escoge un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {editId &&
-                      editing?.client_id &&
-                      !clients.some((c) => c.id === editing.client_id) && (
-                        <SelectItem value={editing.client_id}>
-                          {editing.client?.full_name ?? "Cliente actual"}
+                {editId ? (
+                  <div className="flex h-11 items-center rounded-md border border-input bg-secondary/50 px-3 text-sm">
+                    {editing?.client?.full_name ??
+                      clients.find((c) => c.id === editing?.client_id)?.full_name ??
+                      clients.find((c) => c.id === clientId)?.full_name ??
+                      "Cliente del préstamo"}
+                  </div>
+                ) : (
+                  <Select value={clientId} onValueChange={setClientId}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Escoge un cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.full_name}
                         </SelectItem>
-                      )}
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
