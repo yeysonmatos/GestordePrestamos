@@ -8,13 +8,14 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import type { ErrorRouteComponent } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { RefreshCw } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
-
+import { Button } from "@/components/ui/button";
 
 function NotFoundComponent() {
   return (
@@ -88,7 +89,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Prestamos" },
       { property: "og:type", content: "website" },
-        { property: "og:image", content: "https://gestordeprestamos.do/gp-icon-512.png" },
+      { property: "og:image", content: "https://gestordeprestamos.do/gp-icon-512.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: "https://gestordeprestamos.do/gp-icon-512.png" },
     ],
@@ -142,18 +143,70 @@ function AuthSync() {
 }
 
 function Pwa() {
+  const [updateReady, setUpdateReady] = useState(false);
+
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    const register = () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    // Si ya había un service worker controlando la página, es que había una
+    // versión anterior: cuando otra tome el control avisamos al usuario.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let registration: ServiceWorkerRegistration | null = null;
+
+    const onControllerChange = () => {
+      if (!hadController) return;
+      setUpdateReady(true);
     };
+
+    const register = async () => {
+      try {
+        registration = await navigator.serviceWorker.register("/sw.js");
+      } catch {
+        return;
+      }
+      navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+      registration.update().catch(() => undefined);
+    };
+
     if (document.readyState === "complete") {
       setTimeout(register, 1500);
     } else {
       window.addEventListener("load", register, { once: true });
     }
+
+    // Al volver a la app (típico en la PWA del teléfono) buscamos si hay versión nueva.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") registration?.update().catch(() => undefined);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const timer = window.setInterval(
+      () => {
+        registration?.update().catch(() => undefined);
+      },
+      30 * 60 * 1000,
+    );
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(timer);
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+    };
   }, []);
-  return null;
+
+  if (!updateReady) return null;
+
+  // Avisamos con un botón en vez de recargar solos: así no se pierde lo que el
+  // usuario esté escribiendo (por ejemplo, un pago a medio llenar).
+  return (
+    <div className="no-print fixed bottom-20 left-1/2 z-50 w-[min(92vw,26rem)] -translate-x-1/2 sm:bottom-6">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-raised)]">
+        <RefreshCw className="size-4 shrink-0 text-primary" />
+        <p className="flex-1 text-sm">Hay una versión nueva de la app lista.</p>
+        <Button size="sm" onClick={() => window.location.reload()}>
+          Actualizar
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function RootComponent() {
@@ -163,11 +216,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthSync />
       <Pwa />
-      <Pwa />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />
     </QueryClientProvider>
   );
 }
-

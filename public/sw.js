@@ -1,4 +1,4 @@
-const CACHE = 'gestor-prestamos-lovable-v3'
+const CACHE = 'gestor-prestamos-lovable-v4'
 const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/offline.html',
