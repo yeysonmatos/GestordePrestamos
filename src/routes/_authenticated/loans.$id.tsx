@@ -475,7 +475,7 @@ function LoanDetail() {
             Liquidar
           </Button>
           {editable && (
-            <Button size="sm" variant="secondary" asChild>
+            <Button size="sm" variant="secondary" asChild className="shadow-none">
               <Link to="/loans/new" search={{ client: undefined, edit: loan.id }}>
                 <Pencil className="size-4" /> Editar
               </Link>
