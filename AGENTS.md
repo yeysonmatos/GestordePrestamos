@@ -852,3 +852,20 @@ Inventario completo de los puntos auditados: Dashboard (8 tarjetas vía `get_loa
 - [x] **Guarda**: mismo candado que los otros crons (`Authorization: Bearer $CRON_SECRET`). Verificado en producción: **401 sin llave** y la ruta existe. Verificado en local (como se probaron los otros crons): **200 con llave** → `{ok:true, errors:0, report:{testable_loans:75, clients_checked:70, open_ended_skipped:37}}` y con `?test=1` → `notified:true` + fila en `email_messages` (`reconcile_alert`, admin → gestordprestamos@gmail.com, estado `sending`; el reintento del cron de las 8:00 la enviará desde Vercel, donde nodemailer sí funciona).
 - [x] **Nota**: el `CRON_SECRET` de Vercel es propio (cifrado) y distinto del local ⇒ el cron de Vercel se autentica solo; para pruebas manuales en producción habría que sincronizarlos (no es necesario para que funcione).
 - [ ] Pendiente del plan #2: **2.3 ensayos automáticos (vitest)**, **2.4 caché/versión del service worker**. Después: refinanciar en una pantalla + escalabilidad de Inicio/Cobros.
+
+### 2.4 · La app nunca se queda en la versión vieja — `cb7321e`
+- [x] **Problema**: la PWA podía seguir mostrando la versión anterior (el service worker servía los archivos con "cache-first" y el usuario no recargaba), lo que alimentó la confusión del bug del Select.
+- [x] **`src/routes/__root.tsx`**: el registro del service worker (que estaba **duplicado**: `<Pwa />` dos veces) ahora además (a) busca actualizaciones al volver a la app (`visibilitychange`) y cada 30 min, y (b) cuando **otra versión toma el control** (`controllerchange`, solo si ya había controlador) muestra un **aviso con botón "Actualizar"**. **No recarga solo**: así no se pierde lo que el usuario esté escribiendo (p. ej. un pago a medio llenar).
+- [x] **`public/sw.js`**: caché v3 → **v4** (al activarse purga las copias viejas).
+- [x] **Verificado en producción**: `sw.js` desplegado = `gestor-prestamos-lovable-v4` ✓; el bundle trae el aviso ✓; en el navegador (2ª carga, ya con controlador) el aviso aparece con el botón **Actualizar** (captura).
+
+### 2.3 · Ensayos automáticos de los cálculos — `cb7321e`
+- [x] **`vitest`** instalado + **`vitest.config.ts`** (config mínima propia, sin los plugins de la app para que corran rápido y aislados) + script **`npm test`**.
+- [x] **`src/lib/finance.test.ts`**: **18 ensayos** con números reales ya verificados en producción: cuota francesa mensual (4,000/10%/5 → **1,055.19**), diaria (1,000 → **101.84**, fechas 16→25 oct), semanal (7,000 → **792.94**), el capital suma exacto lo prestado, solo interés (300 y 3,300 en la última cuota), sin cuotas → sin cronograma, `addPeriods` por frecuencia, `periodicRatePct`, **una cuota que vence HOY no está vencida**, mora (900 al 5% × 2 días = 90; con gracia 3 → 0), `recalcFrenchSchedule` y `rd`.
+- [x] **Verificado**: `npm test` → **18/18** ✅; `tsc`, eslint y build limpios.
+- [x] **Hallazgo menor (sin tocar)**: `formatReceiptDate` documenta "16 octubre 2026" pero devuelve el mes corto ("16 oct 2026") ⇒ en la mudanza se perdió el mes largo que el usuario había pedido para los recibos. Pendiente de decidir con él.
+
+### Pendiente del plan
+- [ ] **#3 · Refinanciar en una sola pantalla** (liquidar el préstamo viejo y crear el nuevo).
+- [ ] **#4 · Escalabilidad de Inicio/Cobros** (mover los cálculos a la base cuando crezca el volumen).
+- [ ] Hallazgo de arriba: formato largo de fecha en recibos.
