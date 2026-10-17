@@ -218,7 +218,24 @@ export async function updateLoan(id: string, input: NewLoanInput) {
     .eq("user_id", user_id);
   if (upErr) throw new Error(upErr.message);
 
-  await supabase.from("installments").delete().eq("loan_id", id);
+  // Las cuotas anteriores DEBEN borrarse: si el delete falla en silencio (RLS/red) el
+  // préstamo queda con cuotas fantasma (pasó al pasar uno a abierto). Se revisa el error
+  // y, si no se borró nada, se verifica que de verdad no quede ninguna fila.
+  const { data: deletedRows, error: delErr } = await supabase
+    .from("installments")
+    .delete()
+    .eq("loan_id", id)
+    .select("id");
+  if (delErr) throw new Error(delErr.message);
+  if ((deletedRows?.length ?? 0) === 0) {
+    const { count: leftRows, error: leftErr } = await supabase
+      .from("installments")
+      .select("id", { count: "exact", head: true })
+      .eq("loan_id", id);
+    if (leftErr) throw new Error(leftErr.message);
+    if ((leftRows ?? 0) > 0)
+      throw new Error("No se pudieron limpiar las cuotas anteriores del préstamo");
+  }
   const rows = schedule.map((r) => ({
     loan_id: id,
     client_id: current.client_id,

@@ -15,15 +15,33 @@ import { PageHeader } from "@/components/app-shell";
 import { Money } from "@/components/money";
 
 import { Button } from "@/components/ui/button";
-import { useAllInstallments, useAllPayments, useClients, useLoans, useSubscription } from "@/lib/db";
+import {
+  useAllInstallments,
+  useAllPayments,
+  useClients,
+  useLoans,
+  useSubscription,
+} from "@/lib/db";
 import { useEntitlements } from "@/lib/entitlements";
-import { formatDate, installmentStatus, rd, todaySD, daysBetween, MONTHS_ES } from "@/lib/finance";
+import {
+  addPeriods,
+  formatDate,
+  installmentStatus,
+  rd,
+  todaySD,
+  daysBetween,
+  MONTHS_ES,
+} from "@/lib/finance";
+import type { Frequency } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
       { title: "Inicio | Gestor de Prestamos" },
-      { name: "description", content: "Resumen de tu cartera: capital, cobros del día y morosidad." },
+      {
+        name: "description",
+        content: "Resumen de tu cartera: capital, cobros del día y morosidad.",
+      },
       { property: "og:title", content: "Inicio | Gestor de Prestamos" },
       { property: "og:description", content: "Resumen diario de tu cartera de préstamos." },
     ],
@@ -106,12 +124,35 @@ function Dashboard() {
       0,
     );
     const vencidas = vivas.filter((i) => installmentStatus(i) === "vencida");
-    const enMora = vencidas.reduce(
-      (s, i) => s + Math.max(Number(i.total_amount) - Number(i.paid_amount), 0),
-      0,
-    );
+    // Los préstamos ABIERTOS (solo interés) no generan cuotas: su período pendiente se
+    // calcula igual que en Cobros -> Vencidos (primer pago + pagos de interés hechos),
+    // para que Inicio y Cobros muestren la misma mora.
+    const interesesPagadosByLoan = new Map<string, number>();
+    for (const p of payments) {
+      if (p.reversed || p.installment_id) continue;
+      if (Number(p.principal_portion) > 0) continue;
+      interesesPagadosByLoan.set(p.loan_id, (interesesPagadosByLoan.get(p.loan_id) ?? 0) + 1);
+    }
+    const abiertosVencidos = active.filter((l) => {
+      if (!l.open_ended || !(Number(l.installment_amount) > 0)) return false;
+      const due = addPeriods(
+        l.first_payment_date,
+        (l.frequency as Frequency) || "mensual",
+        interesesPagadosByLoan.get(l.id) ?? 0,
+      );
+      return daysBetween(due, today) > 0;
+    });
+    const abiertosMora = abiertosVencidos.reduce((s, l) => s + Number(l.installment_amount), 0);
+    const enMora =
+      vencidas.reduce(
+        (s, i) => s + Math.max(Number(i.total_amount) - Number(i.paid_amount), 0),
+        0,
+      ) + abiertosMora;
     const clientesMorosos = new Set(
-      vencidas.map((i) => i.loan?.client?.id).filter(Boolean) as string[],
+      [
+        ...vencidas.map((i) => i.loan?.client?.id),
+        ...abiertosVencidos.map((l) => l.client_id),
+      ].filter(Boolean) as string[],
     );
     const hoy = vivas.filter((i) => i.due_date === today && installmentStatus(i) !== "pagada");
     const cobroHoy = hoy.reduce(
@@ -139,7 +180,7 @@ function Dashboard() {
       activos: active.length,
       clientesActivos: new Set(active.map((l) => l.client_id)).size,
     };
-  }, [loans, clients, installments, payments, today]);
+  }, [loans, installments, payments, today]);
 
   const chartData = useMemo(() => {
     const months: { key: string; label: string; ingresos: number; prestado: number }[] = [];
@@ -148,7 +189,7 @@ function Dashboard() {
       const d = new Date(base.getFullYear(), base.getMonth() - k, 1);
       months.push({
         key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-        label: MONTHS_ES[d.getMonth()] ?? '',
+        label: MONTHS_ES[d.getMonth()] ?? "",
         ingresos: 0,
         prestado: 0,
       });
@@ -180,8 +221,8 @@ function Dashboard() {
 
       {sub && subExpired && (
         <div className="mb-4 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Tu plan {sub.plan_name} venció el {formatDate(sub.ends_at)}. Contacta al administrador para
-          renovar tu mensualidad.
+          Tu plan {sub.plan_name} venció el {formatDate(sub.ends_at)}. Contacta al administrador
+          para renovar tu mensualidad.
           <Link to="/account" className="ml-2 font-semibold underline">
             Ver mi plan
           </Link>
@@ -189,8 +230,9 @@ function Dashboard() {
       )}
       {sub && subExpiringSoon && (
         <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
-          Tu plan {sub.plan_name} vence en {subDaysLeft === 0 ? "hoy" : `${subDaysLeft} día${subDaysLeft === 1 ? "" : "s"}`}{" "}
-          ({formatDate(sub.ends_at)}). Contacta al administrador para renovar y evitar la suspensión.
+          Tu plan {sub.plan_name} vence en{" "}
+          {subDaysLeft === 0 ? "hoy" : `${subDaysLeft} día${subDaysLeft === 1 ? "" : "s"}`} (
+          {formatDate(sub.ends_at)}). Contacta al administrador para renovar y evitar la suspensión.
           <Link to="/account" className="ml-2 font-semibold underline">
             Ver mi plan
           </Link>
@@ -249,9 +291,13 @@ function Dashboard() {
             <Users className="size-5 text-info" />
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Clientes activos</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Clientes activos
+            </p>
             <p className="num font-display text-lg font-bold">{stats.clientesActivos}</p>
-            <p className="text-xs text-muted-foreground">Capital por cobrar {rd(stats.porCobrar)}</p>
+            <p className="text-xs text-muted-foreground">
+              Capital por cobrar {rd(stats.porCobrar)}
+            </p>
           </div>
         </div>
       </div>
@@ -273,13 +319,21 @@ function Dashboard() {
                     <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                 <YAxis
                   tickLine={false}
                   axisLine={false}
                   fontSize={11}
-                  tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(v >= 100000 ? 0 : 1).replace(/\.0$/, "")}k` : `${v}`)}
+                  tickFormatter={(v: number) =>
+                    v >= 1000
+                      ? `${(v / 1000).toFixed(v >= 100000 ? 0 : 1).replace(/\.0$/, "")}k`
+                      : `${v}`
+                  }
                 />
                 <Tooltip
                   formatter={(v: number) => rd(v)}
@@ -364,6 +418,3 @@ function Dashboard() {
     </>
   );
 }
-
-
-
