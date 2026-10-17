@@ -173,6 +173,9 @@ function Dashboard() {
       porCobrar,
       enMora,
       vencidas,
+      // "Cobros vencidos": cuotas atrasadas + períodos de interés vencidos de préstamos
+      // abiertos (esos no generan cuotas pero sí se cobran en Cobros -> Vencidos).
+      vencidasCount: vencidas.length + abiertosVencidos.length,
       clientesMorosos: clientesMorosos.size,
       cobroHoy,
       hoyCount: hoy.length,
@@ -281,8 +284,8 @@ function Dashboard() {
             <AlertTriangle className="size-5 text-destructive" />
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Cuotas vencidas</p>
-            <p className="num font-display text-lg font-bold">{stats.vencidas.length}</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Cobros vencidos</p>
+            <p className="num font-display text-lg font-bold">{stats.vencidasCount}</p>
             <p className="text-xs text-muted-foreground">Requieren gestión</p>
           </div>
         </div>
