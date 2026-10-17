@@ -367,11 +367,6 @@ function LoanDetail() {
     <>
       <PageHeader
         title={loan.client?.full_name ?? "Préstamo"}
-        subtitle={
-          isOpen
-            ? `${rd(Number(loan.principal))} · Préstamo abierto (solo interés) · ${loan.interest_rate}% mensual`
-            : `${rd(Number(loan.principal))} · ${loan.term} cuotas ${loan.frequency} · ${loan.interest_rate}% mensual`
-        }
         action={
           <>
             <Button variant="secondary" onClick={() => setContrato(true)}>
