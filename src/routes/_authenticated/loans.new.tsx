@@ -419,21 +419,6 @@ function NewLoan() {
             </div>
 
             <div className="lg:col-span-2">
-              {editId && (
-                <div className="mb-3 rounded-lg border border-dashed border-amber-400 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
-                  <b>Diagnóstico temporal</b> — del préstamo: «
-                  {String(editing?.frequency ?? "cargando")}»/«
-                  {String(editing?.loan_type ?? "cargando")}» · del formulario: «{String(frequency)}
-                  »/«{String(loanType)}» · abierto: {openEnded ? "sí" : "no"} · cuotas: «
-                  {term || "(vacío)"}» · 1er pago: {firstPayment || "(vacío)"} · cuota mostrada:{" "}
-                  {isOpen ? rd(interestPerPeriod) : schedule.length === 0 ? "—" : rd(totals.cuota)}{" "}
-                  · vence:{" "}
-                  {schedule
-                    .slice(0, 3)
-                    .map((r) => r.due_date)
-                    .join(" / ") || "(sin cronograma)"}
-                </div>
-              )}
               <div className="surface sticky top-4 p-5">
                 <h2 className="font-display text-base font-semibold">Vista previa</h2>
                 <div className="mt-3 space-y-2 text-sm">
