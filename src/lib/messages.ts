@@ -1,8 +1,13 @@
 import { formatDate, rd } from "@/lib/finance";
 
-/** Normaliza teléfono a dígitos para wa.me (como GP). */
+/**
+ * Normaliza teléfono a dígitos para wa.me.
+ * Los números locales de RD (10 dígitos) necesitan el código de país 1:
+ * 8097127550 → 18097127550 (si ya viene con 1/otro lada, se deja igual).
+ */
 export function waPhone(phone: string | null | undefined): string {
-  return (phone ?? "").replace(/[^0-9]/g, "");
+  const digits = (phone ?? "").replace(/[^0-9]/g, "");
+  return digits.length === 10 ? `1${digits}` : digits;
 }
 
 export function whatsappUrl(phone: string | null | undefined, message: string): string {

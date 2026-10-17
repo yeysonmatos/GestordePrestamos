@@ -11,6 +11,7 @@ import type { Frequency, LoanType } from "@/lib/finance";
 import type { Installment, Loan } from "@/lib/db";
 import { FREQ_TO_DB, LOAN_TYPE_TO_DB, METHOD_TO_DB, toLoan } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { whatsappUrl } from "@/lib/messages";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const num = (v: number | null | undefined) => Number(v ?? 0);
@@ -918,9 +919,7 @@ export async function archiveLoan(loanId: string, archived: boolean) {
 }
 
 export function whatsappLink(phone: string | null | undefined, message: string) {
-  const digits = (phone ?? "").replace(/\D/g, "");
-  const full = digits.length === 10 ? `1${digits}` : digits;
-  return `https://wa.me/${full}?text=${encodeURIComponent(message)}`;
+  return whatsappUrl(phone, message);
 }
 
 export function csvDownload(filename: string, rows: (string | number)[][]) {
