@@ -80,63 +80,49 @@ export async function createLoan(input: NewLoanInput) {
   const prefix = settingsRow?.loan_id_prefix || "P";
   const visibleId = `${prefix}${String(Date.now()).slice(-6)}`;
 
-  const { data: loan, error } = await supabase
-    .from("loans")
-    .insert({
-      user_id,
-      client_id: input.client_id,
-      loan_id: visibleId,
-      amount: input.principal,
-      interest_type: "percentage",
-      interest_rate: input.interest_rate,
-      total_amount: isOpen ? input.principal : totalAmount,
-      total_interest: isOpen ? interestPerPeriod : totalInterest,
-      installment_amount: isOpen ? interestPerPeriod : installmentAmount,
-      installments: isOpen ? 0 : input.term,
-      frequency: FREQ_TO_DB[input.frequency] ?? "monthly",
-      start_date: input.start_date,
-      first_payment_date: input.first_payment_date,
-      end_date: isOpen ? null : lastDue,
-      amortization_type: LOAN_TYPE_TO_DB[input.loan_type] ?? "french",
-      open_ended: isOpen,
-      payment_day: isOpen ? Number(input.first_payment_date.split("-")[2]) || null : null,
-      status: "active",
-      late_interest_rate: input.late_fee_rate,
-      notes: input.notes || null,
-      paid_amount: 0,
-      remaining_amount: isOpen ? input.principal : totalAmount,
-      paid_installments: 0,
-      progress: 0,
-    })
-    .select()
-    .single();
+  // Crear el préstamo y sus cuotas en UNA sola transacción (RPC save_loan):
+  // si algo falla, no queda nada a medias (ni préstamo sin cuotas ni cuotas viejas).
+  const { data: saved, error } = await supabase.rpc("save_loan", {
+    p_loan_id: null,
+    p_client_id: input.client_id,
+    p_visible_id: visibleId,
+    p_amount: input.principal,
+    p_interest_rate: input.interest_rate,
+    p_installments: isOpen ? 0 : input.term,
+    p_frequency: FREQ_TO_DB[input.frequency] ?? "monthly",
+    p_start_date: input.start_date,
+    p_first_payment_date: input.first_payment_date,
+    p_end_date: isOpen ? null : lastDue,
+    p_amortization_type: LOAN_TYPE_TO_DB[input.loan_type] ?? "french",
+    p_open_ended: isOpen,
+    p_payment_day: isOpen ? Number(input.first_payment_date.split("-")[2]) || null : null,
+    p_late_interest_rate: input.late_fee_rate,
+    p_notes: input.notes || "",
+    p_installment_amount: isOpen ? interestPerPeriod : installmentAmount,
+    p_total_amount: isOpen ? input.principal : totalAmount,
+    p_total_interest: isOpen ? interestPerPeriod : totalInterest,
+    p_remaining_amount: isOpen ? input.principal : totalAmount,
+    p_schedule: schedule.map((r) => ({
+      number: r.number,
+      due_date: r.due_date,
+      amount: r.total_amount,
+      capital: r.principal_amount,
+      interest: r.interest_amount,
+      balance: r.balance,
+    })),
+  });
   if (error) throw new Error(error.message);
+  const newId = (saved as { loan_id: string } | null)?.loan_id;
+  if (!newId) throw new Error("No se pudo guardar el préstamo.");
 
-  const rows = schedule.map((r) => ({
-    loan_id: loan.id,
-    client_id: input.client_id,
-    number: r.number,
-    due_date: r.due_date,
-    amount: r.total_amount,
-    capital: r.principal_amount,
-    interest: r.interest_amount,
-    balance: r.balance,
-    status: "pending",
-  }));
-  if (rows.length > 0) {
-    const { error: e2 } = await supabase.from("installments").insert(rows);
-    if (e2) throw new Error(e2.message);
-  }
+  await refreshLoanStatus(newId);
 
-  await supabase.rpc("update_client_stats", { p_client_id: input.client_id });
-  await refreshLoanStatus(loan.id);
-
-  const ctx = await loanAuditCtx(loan.id);
+  const ctx = await loanAuditCtx(newId);
   await logAudit({
     userId: user_id,
     action: "loan.created",
     entityType: "loan",
-    entityId: loan.id,
+    entityId: newId,
     details: {
       client_name: ctx.client_name,
       loan_id: ctx.loan_id,
@@ -151,7 +137,9 @@ export async function createLoan(input: NewLoanInput) {
     },
   });
 
-  return toLoan(loan);
+  const { data: row } = await supabase.from("loans").select("*").eq("id", newId).maybeSingle();
+  if (!row) throw new Error("El préstamo se guardó, pero no se pudo leer. Recarga la página.");
+  return toLoan(row);
 }
 
 /**
@@ -190,69 +178,39 @@ export async function updateLoan(id: string, input: NewLoanInput) {
   );
   const lastDue = schedule[schedule.length - 1]?.due_date ?? input.first_payment_date;
 
-  const { error: upErr } = await supabase
-    .from("loans")
-    .update({
-      amount: input.principal,
-      interest_rate: input.interest_rate,
-      total_amount: isOpen ? input.principal : totalAmount,
-      total_interest: isOpen ? interestPerPeriod : totalInterest,
-      installment_amount: isOpen ? interestPerPeriod : installmentAmount,
-      installments: isOpen ? 0 : input.term,
-      frequency: FREQ_TO_DB[input.frequency] ?? "monthly",
-      start_date: input.start_date,
-      first_payment_date: input.first_payment_date,
-      end_date: isOpen ? null : lastDue,
-      amortization_type: LOAN_TYPE_TO_DB[input.loan_type] ?? "french",
-      open_ended: isOpen,
-      payment_day: isOpen ? Number(input.first_payment_date.split("-")[2]) || null : null,
-      late_interest_rate: input.late_fee_rate,
-      notes: input.notes || null,
-      paid_amount: 0,
-      remaining_amount: isOpen ? input.principal : totalAmount,
-      paid_installments: 0,
-      progress: 0,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("user_id", user_id);
+  // Editar el préstamo y reemplazar sus cuotas en UNA sola transacción (RPC
+  // save_loan): si algo falla, el préstamo queda exactamente como estaba.
+  const { error: upErr } = await supabase.rpc("save_loan", {
+    p_loan_id: id,
+    p_client_id: current.client_id,
+    p_visible_id: null,
+    p_amount: input.principal,
+    p_interest_rate: input.interest_rate,
+    p_installments: isOpen ? 0 : input.term,
+    p_frequency: FREQ_TO_DB[input.frequency] ?? "monthly",
+    p_start_date: input.start_date,
+    p_first_payment_date: input.first_payment_date,
+    p_end_date: isOpen ? null : lastDue,
+    p_amortization_type: LOAN_TYPE_TO_DB[input.loan_type] ?? "french",
+    p_open_ended: isOpen,
+    p_payment_day: isOpen ? Number(input.first_payment_date.split("-")[2]) || null : null,
+    p_late_interest_rate: input.late_fee_rate,
+    p_notes: input.notes || "",
+    p_installment_amount: isOpen ? interestPerPeriod : installmentAmount,
+    p_total_amount: isOpen ? input.principal : totalAmount,
+    p_total_interest: isOpen ? interestPerPeriod : totalInterest,
+    p_remaining_amount: isOpen ? input.principal : totalAmount,
+    p_schedule: schedule.map((r) => ({
+      number: r.number,
+      due_date: r.due_date,
+      amount: r.total_amount,
+      capital: r.principal_amount,
+      interest: r.interest_amount,
+      balance: r.balance,
+    })),
+  });
   if (upErr) throw new Error(upErr.message);
 
-  // Las cuotas anteriores DEBEN borrarse: si el delete falla en silencio (RLS/red) el
-  // préstamo queda con cuotas fantasma (pasó al pasar uno a abierto). Se revisa el error
-  // y, si no se borró nada, se verifica que de verdad no quede ninguna fila.
-  const { data: deletedRows, error: delErr } = await supabase
-    .from("installments")
-    .delete()
-    .eq("loan_id", id)
-    .select("id");
-  if (delErr) throw new Error(delErr.message);
-  if ((deletedRows?.length ?? 0) === 0) {
-    const { count: leftRows, error: leftErr } = await supabase
-      .from("installments")
-      .select("id", { count: "exact", head: true })
-      .eq("loan_id", id);
-    if (leftErr) throw new Error(leftErr.message);
-    if ((leftRows ?? 0) > 0)
-      throw new Error("No se pudieron limpiar las cuotas anteriores del préstamo");
-  }
-  const rows = schedule.map((r) => ({
-    loan_id: id,
-    client_id: current.client_id,
-    number: r.number,
-    due_date: r.due_date,
-    amount: r.total_amount,
-    capital: r.principal_amount,
-    interest: r.interest_amount,
-    balance: r.balance,
-    status: "pending",
-  }));
-  if (rows.length > 0) {
-    const { error: e3 } = await supabase.from("installments").insert(rows);
-    if (e3) throw new Error(e3.message);
-  }
-  // El cliente de un préstamo no se cambia al editarlo: se mantiene el original.
-  await supabase.rpc("update_client_stats", { p_client_id: current.client_id });
   await refreshLoanStatus(current.id);
 
   // Auditoría: solo los campos que realmente cambiaron.

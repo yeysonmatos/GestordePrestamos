@@ -1052,6 +1052,31 @@ export type Database = {
         }
         Returns: Json
       }
+      save_loan: {
+        Args: {
+          p_amortization_type: string
+          p_amount: number
+          p_client_id: string
+          p_end_date: string | null
+          p_first_payment_date: string
+          p_frequency: string
+          p_installment_amount: number
+          p_installments: number
+          p_interest_rate: number
+          p_late_interest_rate: number
+          p_loan_id: string | null
+          p_notes: string
+          p_open_ended: boolean
+          p_payment_day: number | null
+          p_remaining_amount: number
+          p_schedule?: Json
+          p_start_date: string
+          p_total_amount: number
+          p_total_interest: number
+          p_visible_id: string | null
+        }
+        Returns: Json
+      }
       today_rd: { Args: Record<PropertyKey, never>; Returns: Json }
       update_all_loan_statuses: { Args: Record<PropertyKey, never>; Returns: Json }
       update_client_stats: {
