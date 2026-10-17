@@ -81,10 +81,10 @@ function NewLoan() {
   const limiteAlcanzado =
     !editId && !!limite && loans.filter((l) => l.status === "en_curso").length >= limite;
   const { data: editing } = useLoan(editId ?? "00000000-0000-0000-0000-000000000000");
-  const [prefilled, setPrefilled] = useState(false);
+  const [prefilledFor, setPrefilledFor] = useState<string | null>(null);
 
   useEffect(() => {
-    if (editId && editing && !prefilled) {
+    if (editId && editing && prefilledFor !== editId) {
       setClientId(editing.client_id);
       setPrincipal(String(editing.principal));
       setRate(String(editing.interest_rate));
@@ -96,9 +96,9 @@ function NewLoan() {
       setFirstPayment(editing.first_payment_date);
       setLateFee(editing.late_fee_rate ? String(editing.late_fee_rate) : "");
       setNotes(editing.notes ?? "");
-      setPrefilled(true);
+      setPrefilledFor(editId);
     }
-  }, [editId, editing, prefilled]);
+  }, [editId, editing, prefilledFor]);
 
   // Blindaje: si el estado trae un valor que no corresponde a una opcion valida
   // (p. ej. un valor crudo de la BD), caemos al valor del prestamo y la vista previa
