@@ -100,17 +100,30 @@ function NewLoan() {
     }
   }, [editId, editing, prefilled]);
 
+  // Blindaje: si el estado trae un valor que no corresponde a una opcion valida
+  // (p. ej. un valor crudo de la BD), caemos al valor del prestamo y la vista previa
+  // (y el guardado) nunca calculan con una frecuencia o tipo desconocidos.
+  const safeFrequency: Frequency = FREQUENCIES.some((f) => f.value === frequency)
+    ? frequency
+    : ((editing?.frequency as Frequency | undefined) ?? "mensual");
+  const safeLoanType: LoanType = LOAN_TYPES.some((t) => t.value === loanType)
+    ? loanType
+    : ((editing?.loan_type as LoanType | undefined) ?? "cuota_fija");
+  const safeFirstPayment = /^\d{4}-\d{2}-\d{2}$/.test(firstPayment)
+    ? firstPayment
+    : (editing?.first_payment_date ?? firstPayment);
+
   const schedule = useMemo(
     () =>
       buildSchedule({
         principal: Number(principal) || 0,
         interestRate: Number(rate) || 0,
         term: Number(term) || 0,
-        frequency,
-        loanType,
-        firstPaymentDate: firstPayment,
+        frequency: safeFrequency,
+        loanType: safeLoanType,
+        firstPaymentDate: safeFirstPayment,
       }),
-    [principal, rate, term, frequency, loanType, firstPayment],
+    [principal, rate, term, safeFrequency, safeLoanType, safeFirstPayment],
   );
 
   const totals = useMemo(() => {
@@ -119,9 +132,9 @@ function NewLoan() {
     return { interes, total, cuota: schedule[0]?.total_amount ?? 0 };
   }, [schedule]);
 
-  const isOpen = loanType === "solo_interes" && openEnded;
+  const isOpen = safeLoanType === "solo_interes" && openEnded;
   const interestPerPeriod =
-    Math.round((Number(principal) || 0) * periodicRatePct(Number(rate) || 0, frequency) * 100) /
+    Math.round((Number(principal) || 0) * periodicRatePct(Number(rate) || 0, safeFrequency) * 100) /
     100;
 
   function onFrequency(v: Frequency) {
@@ -158,10 +171,10 @@ function NewLoan() {
         principal: Number(principal),
         interest_rate: Number(rate),
         term: Number(term),
-        frequency,
-        loan_type: loanType,
+        frequency: safeFrequency,
+        loan_type: safeLoanType,
         start_date: startDate,
-        first_payment_date: firstPayment,
+        first_payment_date: safeFirstPayment,
         late_fee_rate: Number(lateFee),
         notes,
         open_ended: isOpen,
@@ -275,7 +288,7 @@ function NewLoan() {
               <div className="space-y-1.5">
                 <Label>Tipo de préstamo</Label>
                 <Select
-                  value={loanType}
+                  value={safeLoanType}
                   onValueChange={(v) => {
                     const t = v as LoanType;
                     setLoanType(t);
@@ -310,7 +323,7 @@ function NewLoan() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Frecuencia de pago</Label>
-                  <Select value={frequency} onValueChange={(v) => onFrequency(v as Frequency)}>
+                  <Select value={safeFrequency} onValueChange={(v) => onFrequency(v as Frequency)}>
                     <SelectTrigger className="h-11">
                       <SelectValue />
                     </SelectTrigger>
@@ -405,6 +418,18 @@ function NewLoan() {
             </div>
 
             <div className="lg:col-span-2">
+              {editId && (
+                <div className="mb-3 rounded-lg border border-dashed border-amber-400 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+                  <b>Diagnóstico temporal</b> — del préstamo: «
+                  {String(editing?.frequency ?? "cargando")}» · del formulario: «{String(frequency)}
+                  » · tipo: «{String(loanType)}» · 1er pago: {firstPayment || "(vacío)"} · cuota:{" "}
+                  {rd(totals.cuota)} · vence:{" "}
+                  {schedule
+                    .slice(0, 3)
+                    .map((r) => r.due_date)
+                    .join(" / ") || "(sin cronograma)"}
+                </div>
+              )}
               <div className="surface sticky top-4 p-5">
                 <h2 className="font-display text-base font-semibold">Vista previa</h2>
                 <div className="mt-3 space-y-2 text-sm">
