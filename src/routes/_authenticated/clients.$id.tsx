@@ -249,11 +249,11 @@ function ClientDetail() {
                     </Chip>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {l.loan_type === "solo_interes" ? "Solo interés" : "Cuota fija"} ·{" "}
                     {l.open_ended
                       ? `Abierto · ${l.interest_rate}%`
                       : `${l.term} cuotas ${l.frequency} · ${l.interest_rate}%`}{" "}
-                    · inicio {formatDate(l.start_date)}
+                    · {l.loan_type === "solo_interes" ? "Solo interés" : "Cuota fija"} · inicio{" "}
+                    {formatDate(l.start_date)}
                   </p>
                   <p className="mt-1 text-xs">
                     {l.status === "pagado" ? (

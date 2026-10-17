@@ -171,10 +171,10 @@ function LoansPage() {
                       {l.client?.full_name ?? "Cliente"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {l.loan_type === "solo_interes" ? "Solo interés" : "Cuota fija"} ·{" "}
                       {l.open_ended
                         ? `Abierto · ${l.interest_rate}%`
-                        : `${l.term} cuotas ${l.frequency} · ${l.interest_rate}%`}
+                        : `${l.term} cuotas ${l.frequency} · ${l.interest_rate}%`}{" "}
+                      · {l.loan_type === "solo_interes" ? "Solo interés" : "Cuota fija"}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
