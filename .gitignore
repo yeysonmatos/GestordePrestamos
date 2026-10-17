@@ -66,3 +66,7 @@ CONTINUACION.md
 /.wrangler
 /env.local.nextjs.bak
 /bun.lock
+
+tmp-*.json
+tmp-*.ps1
+tmp-*.ts
