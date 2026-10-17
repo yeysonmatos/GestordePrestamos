@@ -28,7 +28,10 @@ export const Route = createFileRoute("/_authenticated/loans/")({
   head: () => ({
     meta: [
       { title: "Préstamos | Gestor de Prestamos" },
-      { name: "description", content: "Todos tus préstamos con filtros por estado, tipo y frecuencia." },
+      {
+        name: "description",
+        content: "Todos tus préstamos con filtros por estado, tipo y frecuencia.",
+      },
       { property: "og:title", content: "Préstamos | Gestor de Prestamos" },
       { property: "og:description", content: "Cartera completa de préstamos." },
     ],
@@ -145,7 +148,9 @@ function LoansPage() {
           <p className="font-display text-lg font-semibold">No hay préstamos con estos filtros</p>
           {!__readOnly && (
             <Button asChild variant="accent">
-              <Link to="/loans/new" search={{ client: undefined, edit: undefined }}>Crear préstamo</Link>
+              <Link to="/loans/new" search={{ client: undefined, edit: undefined }}>
+                Crear préstamo
+              </Link>
             </Button>
           )}
         </div>
@@ -173,9 +178,18 @@ function LoansPage() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <Chip
-                      tone={l.status === "en_curso" ? "info" : l.status === "pagado" ? "success" : "neutral"}
+                      tone={
+                        l.status === "en_curso"
+                          ? "info"
+                          : l.status === "pagado"
+                            ? "success"
+                            : "neutral"
+                      }
                     >
                       {LOAN_STATUS_LABEL[l.status] ?? l.status}
+                    </Chip>
+                    <Chip tone="neutral">
+                      {l.loan_type === "solo_interes" ? "Solo interés" : "Cuota fija"}
                     </Chip>
                     {b.dias > 0 && <Chip tone="danger">Atrasado {b.dias}d</Chip>}
                   </div>
@@ -187,7 +201,10 @@ function LoansPage() {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Por cobrar</p>
-                    <Money value={l.open_ended ? l.remaining_amount : b.pendiente} className="font-semibold" />
+                    <Money
+                      value={l.open_ended ? l.remaining_amount : b.pendiente}
+                      className="font-semibold"
+                    />
                   </div>
                   <div>
                     <p className="text-muted-foreground">Inicio</p>

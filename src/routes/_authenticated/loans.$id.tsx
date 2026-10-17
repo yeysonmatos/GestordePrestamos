@@ -474,6 +474,11 @@ function LoanDetail() {
           Datos del préstamo
         </p>
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+          <Dato label="Monto" value={rd(Number(loan.principal))} />
+          <Dato
+            label="Tipo"
+            value={loan.loan_type === "solo_interes" ? "Solo interés" : "Cuota fija"}
+          />
           <Dato label="Inicio (entrega)" value={formatDate(loan.start_date)} />
           <Dato label="Primer pago" value={formatDate(loan.first_payment_date)} />
           <Dato label="Frecuencia" value={freqLabel} />

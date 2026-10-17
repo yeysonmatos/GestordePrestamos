@@ -234,19 +234,24 @@ function ClientDetail() {
                   params={{ id: l.id }}
                   className="surface block p-4 transition-shadow hover:shadow-[var(--shadow-raised)]"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <Money value={l.principal} className="font-display text-lg font-bold" />
-                    <Chip
-                      tone={
-                        l.status === "en_curso"
-                          ? "info"
-                          : l.status === "pagado"
-                            ? "success"
-                            : "neutral"
-                      }
-                    >
-                      {LOAN_STATUS_LABEL[l.status] ?? l.status}
-                    </Chip>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <Chip
+                        tone={
+                          l.status === "en_curso"
+                            ? "info"
+                            : l.status === "pagado"
+                              ? "success"
+                              : "neutral"
+                        }
+                      >
+                        {LOAN_STATUS_LABEL[l.status] ?? l.status}
+                      </Chip>
+                      <Chip tone="neutral">
+                        {l.loan_type === "solo_interes" ? "Solo interés" : "Cuota fija"}
+                      </Chip>
+                    </div>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
                     {l.open_ended
