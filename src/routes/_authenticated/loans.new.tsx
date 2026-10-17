@@ -138,6 +138,7 @@ function NewLoan() {
     100;
 
   function onFrequency(v: Frequency) {
+    if (!v) return;
     setFrequency(v);
     setFirstPayment(addPeriods(startDate, v, 1));
   }
@@ -308,7 +309,7 @@ function NewLoan() {
                 </Select>
               </div>
 
-              {loanType === "solo_interes" && (
+              {safeLoanType === "solo_interes" && (
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
                   <input
                     type="checkbox"

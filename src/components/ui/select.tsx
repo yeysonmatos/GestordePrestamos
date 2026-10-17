@@ -6,7 +6,21 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const Select = SelectPrimitive.Root;
+const Select = ({ onValueChange, ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) => (
+  // Radix renderiza un <select> nativo oculto (para formularios/autofill). Cuando su
+  // valor no coincide con ninguna opcion —p. ej. justo despues de prellenar el
+  // formulario— el navegador lo resetea a "" y Radix emite un cambio vacio que BORRA
+  // el valor controlado (el cliente, la frecuencia o el tipo quedaban en blanco y la
+  // vista previa calculaba mal). Ningun Select de la app ofrece "" como opcion, asi
+  // que ignoramos los cambios vacios.
+  <SelectPrimitive.Root
+    {...props}
+    onValueChange={(value: string) => {
+      if (value === "" || value == null) return;
+      onValueChange?.(value);
+    }}
+  />
+);
 
 const SelectGroup = SelectPrimitive.Group;
 
