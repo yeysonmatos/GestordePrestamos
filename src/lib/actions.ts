@@ -10,6 +10,7 @@ import {
 import type { Frequency, LoanType } from "@/lib/finance";
 import type { Installment, Loan } from "@/lib/db";
 import { FREQ_TO_DB, LOAN_TYPE_TO_DB, METHOD_TO_DB, toLoan } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const num = (v: number | null | undefined) => Number(v ?? 0);
@@ -18,6 +19,20 @@ async function requireUserId() {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("Sesión expirada");
   return data.user.id;
+}
+
+/** Contexto legible para la auditoría de un pago/préstamo (nº visible + cliente). */
+async function loanAuditCtx(
+  loanId: string | null | undefined,
+): Promise<{ loan_id: string | null; client_name: string | null }> {
+  if (!loanId) return { loan_id: null, client_name: null };
+  const { data } = await supabase
+    .from("loans")
+    .select("loan_id, client:clients(name)")
+    .eq("id", loanId)
+    .maybeSingle();
+  const row = data as { loan_id?: string | null; client?: { name?: string | null } | null } | null;
+  return { loan_id: row?.loan_id ?? null, client_name: row?.client?.name ?? null };
 }
 
 export type NewLoanInput = {
@@ -114,6 +129,27 @@ export async function createLoan(input: NewLoanInput) {
 
   await supabase.rpc("update_client_stats", { p_client_id: input.client_id });
   await refreshLoanStatus(loan.id);
+
+  const ctx = await loanAuditCtx(loan.id);
+  await logAudit({
+    userId: user_id,
+    action: "loan.created",
+    entityType: "loan",
+    entityId: loan.id,
+    details: {
+      client_name: ctx.client_name,
+      loan_id: ctx.loan_id,
+      amount: input.principal,
+      interest_rate: input.interest_rate,
+      installments: isOpen ? 0 : input.term,
+      frequency: FREQ_TO_DB[input.frequency],
+      amortization_type: LOAN_TYPE_TO_DB[input.loan_type],
+      open_ended: isOpen,
+      start_date: input.start_date,
+      first_payment_date: input.first_payment_date,
+    },
+  });
+
   return toLoan(loan);
 }
 
@@ -125,7 +161,9 @@ export async function updateLoan(id: string, input: NewLoanInput) {
   const user_id = await requireUserId();
   const { data: current, error: cErr } = await supabase
     .from("loans")
-    .select("id, user_id, client_id, paid_amount, paid_installments, status, deleted_at")
+    .select(
+      "id, user_id, client_id, paid_amount, paid_installments, status, deleted_at, loan_id, amount, interest_rate, installments, frequency, amortization_type, open_ended, start_date, first_payment_date, late_interest_rate, notes",
+    )
     .eq("id", id)
     .maybeSingle();
   if (cErr) throw new Error(cErr.message);
@@ -202,6 +240,55 @@ export async function updateLoan(id: string, input: NewLoanInput) {
     await supabase.rpc("update_client_stats", { p_client_id: current.client_id });
   }
   await refreshLoanStatus(current.id);
+
+  // Auditoría: solo los campos que realmente cambiaron.
+  const nextVals: Record<string, unknown> = {
+    amount: input.principal,
+    interest_rate: input.interest_rate,
+    installments: isOpen ? 0 : input.term,
+    frequency: FREQ_TO_DB[input.frequency] ?? "monthly",
+    amortization_type: LOAN_TYPE_TO_DB[input.loan_type] ?? "french",
+    open_ended: isOpen,
+    start_date: input.start_date,
+    first_payment_date: input.first_payment_date,
+    late_interest_rate: input.late_fee_rate,
+    notes: input.notes || "",
+  };
+  const prevVals: Record<string, unknown> = {
+    amount: num(current.amount),
+    interest_rate: num(current.interest_rate),
+    installments: num(current.installments),
+    frequency: String(current.frequency ?? ""),
+    amortization_type: String(current.amortization_type ?? ""),
+    open_ended: Boolean(current.open_ended),
+    start_date: String(current.start_date ?? ""),
+    first_payment_date: String(current.first_payment_date ?? ""),
+    late_interest_rate: num(current.late_interest_rate),
+    notes: String(current.notes ?? ""),
+  };
+  const changedNext: Record<string, unknown> = {};
+  const changedPrev: Record<string, unknown> = {};
+  for (const k of Object.keys(nextVals)) {
+    if (String(nextVals[k] ?? "") !== String(prevVals[k] ?? "")) {
+      changedNext[k] = nextVals[k];
+      changedPrev[k] = prevVals[k];
+    }
+  }
+  if (Object.keys(changedNext).length > 0) {
+    const ctx = await loanAuditCtx(current.id);
+    await logAudit({
+      userId: user_id,
+      action: "loan.updated",
+      entityType: "loan",
+      entityId: current.id,
+      details: {
+        client_name: ctx.client_name,
+        loan_id: ctx.loan_id,
+        ...changedNext,
+        __previous: changedPrev,
+      },
+    });
+  }
 }
 
 export type PaymentResult = {
@@ -259,6 +346,25 @@ export async function payInstallment(params: {
   } | null;
   if (!res?.ok) throw new Error(res?.error || "El pago no pudo ser procesado");
   await refreshLoanStatus(params.loanId);
+
+  const ctx = await loanAuditCtx(params.loanId);
+  await logAudit({
+    userId: user_id,
+    action: "payment.recorded",
+    entityType: "payment",
+    entityId: res.payment!.id,
+    details: {
+      type: "installment",
+      amount: num(res.payment!.amount),
+      capital_amount: num(res.payment!.capital_amount),
+      interest_amount: num(res.payment!.interest_amount),
+      late_amount: num(res.payment!.late_amount),
+      method: params.method,
+      loan_id: ctx.loan_id,
+      client_name: ctx.client_name,
+    },
+  });
+
   return { payment: res.payment!, loan: res.loan ?? null, allocation: res.allocation ?? null };
 }
 
@@ -296,6 +402,23 @@ export async function payOpenInterest(params: {
   if (error) throw new Error(error.message);
 
   await refreshLoanStatus(loan.id);
+
+  const ctx = await loanAuditCtx(loan.id);
+  await logAudit({
+    userId: user_id,
+    action: "payment.recorded",
+    entityType: "payment",
+    entityId: created.id,
+    details: {
+      type: "interest_only",
+      amount: num(created.amount),
+      interest_amount: num(created.interest_amount),
+      method,
+      loan_id: ctx.loan_id,
+      client_name: ctx.client_name,
+    },
+  });
+
   return {
     payment: {
       id: created.id,
@@ -468,6 +591,23 @@ export async function payCapital(params: {
 
   await applyCapitalRebalance(loan.id, round2(amount));
   await refreshLoanStatus(loan.id);
+
+  const ctx = await loanAuditCtx(loan.id);
+  await logAudit({
+    userId: user_id,
+    action: "capital_abono",
+    entityType: "payment",
+    entityId: created.id,
+    details: {
+      type: "capital_abono",
+      amount: num(created.amount),
+      capital_amount: num(created.capital_amount),
+      method,
+      loan_id: ctx.loan_id,
+      client_name: ctx.client_name,
+    },
+  });
+
   return { payment: created };
 }
 /** Liquidación anticipada: ver settlementQuote en finance.ts (función pura, testeable). */
@@ -528,6 +668,24 @@ export async function settleLoan(params: {
     .update({ status: "paid", paid_at: new Date().toISOString() })
     .eq("id", loan.id);
   await refreshLoanStatus(loan.id);
+
+  const ctx = await loanAuditCtx(loan.id);
+  await logAudit({
+    userId: user_id,
+    action: "loan.liquidated",
+    entityType: "payment",
+    entityId: created.id,
+    details: {
+      type: "liquidation",
+      amount: num(created.amount),
+      capital_amount: num(created.capital_amount),
+      interest_amount: num(created.interest_amount),
+      late_amount: num(created.late_amount),
+      loan_id: ctx.loan_id,
+      client_name: ctx.client_name,
+    },
+  });
+
   return { payment: created };
 }
 
@@ -618,6 +776,22 @@ export async function reversePayment(params: { paymentId: string; reason: string
   }
 
   if (payment.loan_id) await refreshLoanStatus(payment.loan_id);
+
+  const ctx = await loanAuditCtx(payment.loan_id);
+  await logAudit({
+    action: "payment.reversed",
+    entityType: "payment",
+    entityId: params.paymentId,
+    details: {
+      amount: num(payment.amount),
+      capital_amount: num(payment.capital_amount),
+      interest_amount: num(payment.interest_amount),
+      late_amount: num(payment.late_amount),
+      reason: params.reason,
+      loan_id: ctx.loan_id,
+      client_name: ctx.client_name,
+    },
+  });
 }
 
 /**
@@ -731,6 +905,14 @@ export async function archiveLoan(loanId: string, archived: boolean) {
     await supabase.from("loans").update({ status: "active", deleted_at: null }).eq("id", loanId);
     await refreshLoanStatus(loanId);
   }
+
+  const ctx = await loanAuditCtx(loanId);
+  await logAudit({
+    action: archived ? "loan.deleted" : "loan.updated",
+    entityType: "loan",
+    entityId: loanId,
+    details: archived ? { ...ctx } : { ...ctx, estado: "reactivado" },
+  });
 }
 
 export function whatsappLink(phone: string | null | undefined, message: string) {

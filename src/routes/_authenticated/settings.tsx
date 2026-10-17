@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/lib/audit";
 import { useProfile } from "@/lib/db";
 
 type Tab = "ajustes" | "plan" | "soporte" | "exportar";
@@ -88,6 +89,37 @@ function Settings() {
     if (error) {
       toast.error(error.message);
       return;
+    }
+    // Auditoría: solo los ajustes que cambiaron.
+    const nextVals: Record<string, unknown> = {
+      business_name: form.business_name || "Mi Negocio",
+      personal_name: form.owner_name || null,
+      business_phone: form.phone || null,
+      late_interest_rate: Number(form.default_late_fee_rate) || 0,
+      grace_days: Number(form.grace_days) || 0,
+    };
+    const prevVals: Record<string, unknown> = {
+      business_name: profile?.business_name ?? "",
+      personal_name: profile?.owner_name ?? null,
+      business_phone: profile?.phone ?? null,
+      late_interest_rate: profile?.default_late_fee_rate ?? 0,
+      grace_days: profile?.grace_days ?? 0,
+    };
+    const changed: Record<string, unknown> = {};
+    const was: Record<string, unknown> = {};
+    for (const k of Object.keys(nextVals)) {
+      if (String(nextVals[k] ?? "") !== String(prevVals[k] ?? "")) {
+        changed[k] = nextVals[k];
+        was[k] = prevVals[k];
+      }
+    }
+    if (Object.keys(changed).length > 0) {
+      await logAudit({
+        action: "settings.updated",
+        entityType: "settings",
+        entityId: profile?.id ?? null,
+        details: { ...changed, __previous: was },
+      });
     }
     await queryClient.invalidateQueries();
     toast.success("Ajustes guardados");

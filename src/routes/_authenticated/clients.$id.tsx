@@ -12,13 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Chip, Money } from "@/components/money";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  useAllInstallments,
-  useClient,
-  useClientPayments,
-  useLoans,
-  useProfile,
-} from "@/lib/db";
+import { logAudit } from "@/lib/audit";
+import { useAllInstallments, useClient, useClientPayments, useLoans, useProfile } from "@/lib/db";
 import { useEntitlements } from "@/lib/entitlements";
 import { formatDate, installmentStatus, LOAN_STATUS_LABEL, rd } from "@/lib/finance";
 import { getPaymentLabel } from "@/lib/payment-labels";
@@ -29,7 +24,10 @@ export const Route = createFileRoute("/_authenticated/clients/$id")({
   head: () => ({
     meta: [
       { title: "Perfil del cliente | Gestor de Prestamos" },
-      { name: "description", content: "Perfil del cliente, sus préstamos, pagos y datos de contacto." },
+      {
+        name: "description",
+        content: "Perfil del cliente, sus préstamos, pagos y datos de contacto.",
+      },
       { property: "og:title", content: "Perfil del cliente | Gestor de Prestamos" },
       { property: "og:description", content: "Perfil del cliente y sus préstamos." },
     ],
@@ -108,6 +106,16 @@ function ClientDetail() {
         })
         .eq("id", id);
       if (error) throw error;
+      await logAudit({
+        action: "client.updated",
+        entityType: "client",
+        entityId: id,
+        details: {
+          name: form.full_name,
+          phone: form.phone || null,
+          status: form.active ? "active" : "inactive",
+        },
+      });
       await queryClient.invalidateQueries();
       toast.success("Cliente actualizado");
     } catch (e) {
@@ -132,7 +140,8 @@ function ClientDetail() {
           .sort((a, b) => a.first_payment_date.localeCompare(b.first_payment_date))[0]
           ?.first_payment_date
       : null);
-  const balance = Number(client.balance) || mine.reduce((s, l) => s + Number(l.remaining_amount), 0);
+  const balance =
+    Number(client.balance) || mine.reduce((s, l) => s + Number(l.remaining_amount), 0);
   const msg = buildClientMessage({
     clientName: client.full_name,
     businessName: profile?.business_name,
@@ -176,15 +185,24 @@ function ClientDetail() {
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="surface min-w-0 p-4">
           <p className="text-xs text-muted-foreground">Total prestado</p>
-          <Money value={client.total_borrowed || capital} className="block truncate font-display text-base font-bold sm:text-lg" />
+          <Money
+            value={client.total_borrowed || capital}
+            className="block truncate font-display text-base font-bold sm:text-lg"
+          />
         </div>
         <div className="surface min-w-0 p-4">
           <p className="text-xs text-muted-foreground">Total pagado</p>
-          <Money value={client.total_paid} className="block truncate font-display text-base font-bold text-success sm:text-lg" />
+          <Money
+            value={client.total_paid}
+            className="block truncate font-display text-base font-bold text-success sm:text-lg"
+          />
         </div>
         <div className="surface min-w-0 p-4">
           <p className="text-xs text-muted-foreground">Saldo por cobrar</p>
-          <Money value={balance} className="block truncate font-display text-base font-bold text-destructive sm:text-lg" />
+          <Money
+            value={balance}
+            className="block truncate font-display text-base font-bold text-destructive sm:text-lg"
+          />
         </div>
         <div className="surface min-w-0 p-4">
           <p className="text-xs text-muted-foreground">Préstamos</p>
@@ -219,7 +237,13 @@ function ClientDetail() {
                   <div className="flex items-center justify-between">
                     <Money value={l.principal} className="font-display text-lg font-bold" />
                     <Chip
-                      tone={l.status === "en_curso" ? "info" : l.status === "pagado" ? "success" : "neutral"}
+                      tone={
+                        l.status === "en_curso"
+                          ? "info"
+                          : l.status === "pagado"
+                            ? "success"
+                            : "neutral"
+                      }
                     >
                       {LOAN_STATUS_LABEL[l.status] ?? l.status}
                     </Chip>
@@ -237,7 +261,10 @@ function ClientDetail() {
                       </span>
                     ) : (
                       <span className="text-muted-foreground">
-                        Por cobrar: <span className="font-semibold text-foreground">{rd(l.remaining_amount)}</span>
+                        Por cobrar:{" "}
+                        <span className="font-semibold text-foreground">
+                          {rd(l.remaining_amount)}
+                        </span>
                       </span>
                     )}
                   </p>
@@ -276,7 +303,12 @@ function ClientDetail() {
           <div className="surface max-w-2xl space-y-4 p-5">
             <div className="space-y-1.5">
               <Label htmlFor="full_name">Nombre completo</Label>
-              <Input id="full_name" className="h-11" value={form.full_name} onChange={set("full_name")} />
+              <Input
+                id="full_name"
+                className="h-11"
+                value={form.full_name}
+                onChange={set("full_name")}
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -289,7 +321,13 @@ function ClientDetail() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Correo</Label>
-                <Input id="email" type="email" className="h-11" value={form.email} onChange={set("email")} />
+                <Input
+                  id="email"
+                  type="email"
+                  className="h-11"
+                  value={form.email}
+                  onChange={set("email")}
+                />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -304,8 +342,8 @@ function ClientDetail() {
               <div>
                 <p className="text-sm font-semibold">Cliente activo</p>
                 <p className="text-xs text-muted-foreground">
-                  Se marca solo al tener préstamos en curso. Para "jubilarlo", ponlo inactivo; sus préstamos e
-                  historial se conservan siempre.
+                  Se marca solo al tener préstamos en curso. Para "jubilarlo", ponlo inactivo; sus
+                  préstamos e historial se conservan siempre.
                 </p>
               </div>
               <Switch

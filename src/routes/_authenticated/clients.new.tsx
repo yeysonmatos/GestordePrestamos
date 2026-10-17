@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/lib/audit";
 import { useClients, useSubscription } from "@/lib/db";
 
 export const Route = createFileRoute("/_authenticated/clients/new")({
@@ -73,6 +74,13 @@ function NewClient() {
         .select()
         .single();
       if (error) throw error;
+      await logAudit({
+        userId: auth.user!.id,
+        action: "client.created",
+        entityType: "client",
+        entityId: data.id,
+        details: { name: form.full_name, phone: form.phone || null },
+      });
       await queryClient.invalidateQueries();
       toast.success("Cliente guardado");
       navigate({ to: "/clients/$id", params: { id: data.id } });
@@ -124,7 +132,7 @@ function NewClient() {
             />
           </div>
           <div className="space-y-1.5">
-                <Label htmlFor="phone">Teléfono / WhatsApp</Label>
+            <Label htmlFor="phone">Teléfono / WhatsApp</Label>
             <Input
               id="phone"
               className="h-11"
@@ -136,7 +144,13 @@ function NewClient() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="email">Correo</Label>
-          <Input id="email" type="email" className="h-11" value={form.email} onChange={set("email")} />
+          <Input
+            id="email"
+            type="email"
+            className="h-11"
+            value={form.email}
+            onChange={set("email")}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="address">Dirección</Label>
