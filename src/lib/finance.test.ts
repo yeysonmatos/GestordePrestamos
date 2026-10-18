@@ -9,6 +9,7 @@ import {
   periodicRatePct,
   rd,
   recalcFrenchSchedule,
+  settlementQuote,
   todaySD,
 } from "./finance";
 
@@ -216,6 +217,38 @@ describe("recalcFrenchSchedule — recálculo tras un abono a capital", () => {
     const capital = rows.reduce((a, r) => a + r.principal_amount, 0);
     expect(capital).toBeCloseTo(2000, 1);
     expect(rows[2]!.balance).toBeCloseTo(0, 2);
+  });
+});
+
+describe("settlementQuote — lo que se debe al liquidar o reenganchar", () => {
+  it("capital pendiente + interés devengado + mora", () => {
+    const q = settlementQuote({
+      loan: { principal: 1000, interest_rate: 10, start_date: "2026-09-17" },
+      installments: [
+        { due_date: "2026-10-17", total_amount: 263.8, principal_amount: 163.8, paid_amount: 0 },
+        { due_date: "2026-11-16", total_amount: 263.8, principal_amount: 180.18, paid_amount: 0 },
+      ],
+      mora: 50,
+      lastPaymentDate: addPeriods(todaySD(), "diaria", -15),
+    });
+    expect(q.capital).toBeCloseTo(343.98, 2);
+    // 15 días al 10% mensual sobre el capital pendiente
+    expect(q.interes).toBeCloseTo(17.2, 1);
+    expect(q.mora).toBeCloseTo(50, 2);
+    expect(q.total).toBeCloseTo(q.capital + q.interes + q.mora, 2);
+    expect(q.cuotas).toBe(2);
+  });
+
+  it("con capital ya pagado usa principal − pagado, y sin días no cobra interés", () => {
+    const q = settlementQuote({
+      loan: { principal: 1000, interest_rate: 10, start_date: "2026-09-17" },
+      installments: [],
+      capitalPaid: 400,
+      lastPaymentDate: todaySD(),
+    });
+    expect(q.capital).toBeCloseTo(600, 2);
+    expect(q.interes).toBe(0);
+    expect(q.total).toBeCloseTo(600, 2);
   });
 });
 

@@ -85,9 +85,10 @@ export function formatDateTime(value: string | null | undefined): string {
 }
 
 /**
- * Fecha para recibos con el formato unico del sistema ("16 octubre 2026").
- * Para valores "yyyy-mm-dd" evita el salto de zona horaria (UTC vs RD) que
- * corria un dia; si el valor trae hora usa el formateador del sistema.
+ * Fecha para recibos y PDF con el formato del sistema: mes CORTO ("16 oct 2026"),
+ * igual que el resto de la app (decisión del usuario, 17 Oct 2026: el corto es el
+ * formato por defecto). Para valores "yyyy-mm-dd" evita el salto de zona horaria
+ * (UTC vs RD) que corria un dia; si el valor trae hora usa el formateador del sistema.
  */
 export function formatReceiptDate(value: string | null | undefined): string {
   if (!value) return "-";

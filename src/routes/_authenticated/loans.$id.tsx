@@ -2,9 +2,23 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, FileText, MessageCircle, Pencil, Undo2 } from "lucide-react";
+import {
+  Archive,
+  EllipsisVertical,
+  FileText,
+  MessageCircle,
+  Pencil,
+  Undo2,
+  User,
+} from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -368,29 +382,40 @@ function LoanDetail() {
       <PageHeader
         title={loan.client?.full_name ?? "Préstamo"}
         action={
-          <>
-            <Button variant="secondary" onClick={() => setContrato(true)}>
-              <FileText className="size-4" /> Contrato
-            </Button>
-            {waNumber ? (
-              <Button asChild variant="secondary">
-                <a href={whatsappLink(waNumber, mensaje)} target="_blank" rel="noreferrer">
-                  <MessageCircle className="size-4" /> WhatsApp
-                </a>
-              </Button>
-            ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
-                variant="secondary"
-                onClick={() => {
-                  navigator.clipboard
-                    .writeText(mensaje)
-                    .then(() => toast.info("Mensaje copiado (sin teléfono)"));
-                }}
+                size="sm"
+                variant="ghost"
+                aria-label="Documentos y contacto"
+                title="Documentos y contacto"
               >
-                <MessageCircle className="size-4" /> Copiar mensaje
+                <EllipsisVertical className="size-5" />
               </Button>
-            )}
-          </>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => setContrato(true)}>
+                <FileText className="size-4" /> Contrato
+              </DropdownMenuItem>
+              {waNumber ? (
+                <DropdownMenuItem asChild>
+                  <a href={whatsappLink(waNumber, mensaje)} target="_blank" rel="noreferrer">
+                    <MessageCircle className="size-4" /> WhatsApp
+                  </a>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(mensaje)
+                      .then(() => toast.info("Mensaje copiado (sin teléfono)"));
+                  }}
+                >
+                  <MessageCircle className="size-4" /> Copiar mensaje
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
 
@@ -445,22 +470,31 @@ function LoanDetail() {
           <Button size="sm" variant="secondary" onClick={() => setLiquidar(true)}>
             Liquidar
           </Button>
-          {editable && (
-            <Button size="sm" variant="ghost" asChild>
-              <Link to="/loans/new" search={{ client: undefined, edit: loan.id }}>
-                <Pencil className="size-4" /> Editar
-              </Link>
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={toggleArchive} disabled={busy}>
-            <Archive className="size-4" />
-            {loan.status === "archivado" ? "Reactivar" : "Archivar"}
-          </Button>
-          <Button size="sm" variant="ghost" asChild>
-            <Link to="/clients/$id" params={{ id: loan.client_id }}>
-              Ver cliente
-            </Link>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" aria-label="Más acciones" title="Más acciones">
+                <EllipsisVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {editable && (
+                <DropdownMenuItem asChild>
+                  <Link to="/loans/new" search={{ client: undefined, edit: loan.id }}>
+                    <Pencil className="size-4" /> Editar
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={toggleArchive} disabled={busy}>
+                <Archive className="size-4" />
+                {loan.status === "archivado" ? "Reactivar" : "Archivar"}
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/clients/$id" params={{ id: loan.client_id }}>
+                  <User className="size-4" /> Ver cliente
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
