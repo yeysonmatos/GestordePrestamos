@@ -124,6 +124,7 @@ export function PayDialog({
   const [method, setMethod] = useState("efectivo");
   const [date, setDate] = useState(todaySD());
   const [note, setNote] = useState("");
+  const [showNote, setShowNote] = useState(false);
   const [saving, setSaving] = useState(false);
   const lockRef = useRef(false);
 
@@ -136,6 +137,7 @@ export function PayDialog({
     setMethod("efectivo");
     setDate(todaySD());
     setNote("");
+    setShowNote(false);
     setIncludeMora(true);
   }
 
@@ -349,17 +351,29 @@ export function PayDialog({
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="nota">Nota / referencia (opcional)</Label>
-          <Textarea id="nota" value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
-        </div>
+        {/* La nota se colapsa para que el diálogo no crezca (en móviles con mora el
+            botón de cobrar y la X quedaban fuera de pantalla). */}
+        {showNote ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="nota">Nota / referencia (opcional)</Label>
+            <Textarea id="nota" value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="justify-self-start text-xs font-medium text-primary hover:underline"
+            onClick={() => setShowNote(true)}
+          >
+            + Agregar nota / referencia
+          </button>
+        )}
 
         <div className="flex justify-between rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm font-semibold">
           <span>Total a recibir</span>
           <Money value={amountValue} />
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-1">
           <Button variant="accent" className="w-full min-h-11" onClick={submit} disabled={saving}>
             {saving ? "Guardando…" : "Confirmar cobro"}
           </Button>
@@ -480,7 +494,7 @@ export function ReceiptDialog({
           </p>
         </div>
 
-        <DialogFooter className="no-print gap-2 sm:grid sm:grid-cols-3">
+        <DialogFooter className="no-print sticky bottom-0 z-10 -mx-6 -mb-6 mt-1 gap-2 border-t border-border bg-background px-6 py-4 sm:grid sm:grid-cols-3">
           <Button variant="secondary" className="min-h-11" onClick={descargarPdf}>
             <Printer className="mr-1 size-4" /> PDF
           </Button>
