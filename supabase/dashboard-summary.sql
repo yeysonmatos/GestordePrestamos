@@ -33,6 +33,8 @@ DECLARE
   v_uid UUID;
   v_capital_prestado   NUMERIC;
   v_loans_total        INTEGER;
+  v_mora_acumulada     NUMERIC;
+  v_grace              INTEGER;
   v_capital_recuperado NUMERIC;
   v_interes_ganado     NUMERIC;
   v_por_cobrar         NUMERIC;
@@ -60,6 +62,7 @@ BEGIN
 
   -- Usuario efectivo: el que llama (p_user_id puede venir NULL desde la app).
   v_uid := COALESCE(p_user_id, auth.uid());
+  v_grace := COALESCE((SELECT grace_days FROM public.settings WHERE user_id = v_uid LIMIT 1), 0);
 
   -- 1. Capital prestado: TODOS los préstamos no archivados (en curso + pagados)
   SELECT COALESCE(SUM(amount), 0), COUNT(*) INTO v_capital_prestado, v_loans_total
@@ -136,6 +139,62 @@ BEGIN
               AND p.installment_id IS NULL AND COALESCE(p.capital_amount, 0) = 0) || ' months')::interval
       END
     )::date < v_today;
+
+  -- 6b. MORA ACUMULADA: el RECARGO por pagar tarde (no el atraso).
+  --     Regla de la app (finance.ts -> lateFee): pendiente × (tasa diaria / 100) ×
+  --     días de atraso DESPUÉS de los días de gracia. Se calcula en vivo sobre las
+  --     mismas filas vencidas (cuotas + períodos de préstamos abiertos).
+  WITH abiertos AS (
+    SELECT
+      l.installment_amount AS pendiente,
+      COALESCE(l.late_interest_rate, 0) AS tasa,
+      (CASE l.frequency
+        WHEN 'daily' THEN l.first_payment_date + (
+          (SELECT COUNT(*) FROM public.payments p
+            WHERE p.loan_id = l.id AND p.status = 'paid'
+              AND p.installment_id IS NULL AND COALESCE(p.capital_amount, 0) = 0) || ' days')::interval
+        WHEN 'weekly' THEN l.first_payment_date + (
+          (SELECT COUNT(*) FROM public.payments p
+            WHERE p.loan_id = l.id AND p.status = 'paid'
+              AND p.installment_id IS NULL AND COALESCE(p.capital_amount, 0) = 0) * 7 || ' days')::interval
+        WHEN 'biweekly' THEN l.first_payment_date + (
+          (SELECT COUNT(*) FROM public.payments p
+            WHERE p.loan_id = l.id AND p.status = 'paid'
+              AND p.installment_id IS NULL AND COALESCE(p.capital_amount, 0) = 0) * 15 || ' days')::interval
+        ELSE l.first_payment_date + (
+          (SELECT COUNT(*) FROM public.payments p
+            WHERE p.loan_id = l.id AND p.status = 'paid'
+              AND p.installment_id IS NULL AND COALESCE(p.capital_amount, 0) = 0) || ' months')::interval
+      END)::date AS due
+    FROM public.loans l
+    WHERE l.user_id = v_uid
+      AND l.deleted_at IS NULL
+      AND l.open_ended
+      AND l.status IN ('active', 'late', 'late_1_30', 'late_31_60', 'late_61_90')
+      AND COALESCE(l.installment_amount, 0) > 0
+  )
+  SELECT COALESCE(SUM(m.mora), 0) INTO v_mora_acumulada
+  FROM (
+    SELECT ROUND(
+             GREATEST(i.amount - COALESCE(i.paid_amount, 0), 0)
+             * (COALESCE(l.late_interest_rate, 0) / 100)
+             * GREATEST(0, (v_today - i.due_date) - v_grace),
+             2) AS mora
+    FROM public.installments i
+    JOIN public.loans l ON l.id = i.loan_id
+    WHERE l.user_id = v_uid
+      AND l.deleted_at IS NULL
+      AND l.status IN ('active', 'late', 'late_1_30', 'late_31_60', 'late_61_90')
+      AND i.due_date < v_today
+      AND COALESCE(i.status, 'pending') <> 'paid'
+      AND (i.amount - COALESCE(i.paid_amount, 0)) > 0.009
+    UNION ALL
+    SELECT ROUND(
+             a.pendiente * (a.tasa / 100) * GREATEST(0, (v_today - a.due) - v_grace),
+             2)
+    FROM abiertos a
+    WHERE a.due < v_today
+  ) m;
 
   -- 7. Clientes morosos (cuotas vencidas + préstamos abiertos vencidos)
   SELECT COUNT(DISTINCT client_id) INTO v_clientes_morosos
@@ -254,6 +313,7 @@ BEGIN
     'en_mora', v_mora_cuotas + v_mora_abiertos,
     'mora_cuotas', v_mora_cuotas,
     'mora_abiertos', v_mora_abiertos,
+    'mora_acumulada', v_mora_acumulada,
     'vencidas', v_vencidas,
     'vencidas_count', v_vencidas + v_abiertos_vencidos,
     'clientes_morosos', v_clientes_morosos,

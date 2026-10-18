@@ -149,7 +149,7 @@ function Dashboard() {
           label="Capital recuperado"
           value={rd(stats.capitalRecuperado)}
           tone="success"
-          hint="Capital de cuotas + abonos"
+          hint="Cuotas + Abonos"
         />
         <Kpi
           label="Intereses + mora"
@@ -158,7 +158,7 @@ function Dashboard() {
           hint="Ganancia cobrada"
         />
         <Kpi
-          label="En mora"
+          label="Vencidos"
           value={rd(stats.enMora)}
           tone="danger"
           hint={`${stats.clientesMorosos} clientes atrasados`}

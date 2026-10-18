@@ -1,8 +1,11 @@
 // Crons de plataforma (portados de la app Next.js, fase A2/retencion):
 //  - /api/cron/backup            -> respaldo diario de TODOS los usuarios + purga por retencion
 //  - /api/cron/subscription-notify -> avisa al admin de trials vencidos (1x usuario por dia)
-//  - /api/cron/reconcile         -> "revisor de cuentas": verifica la integridad contable
-//                                   (reconcile_money) y AVISA AL ADMIN si hay descuadres
+//  - /api/cron/reconcile         -> "revisor del sistema": integridad contable
+//                                   (reconcile_money) + revisor de integridad
+//                                   (system_checks: cronogramas, estados, mora y
+//                                   coherencia Reportes<->Inicio) + vigilante del
+//                                   backup; AVISA AL ADMIN si encuentra algo
 // Protegidos con CRON_SECRET (Vercel envia "Authorization: Bearer $CRON_SECRET").
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -206,6 +209,60 @@ interface ReconcileReport {
   errors?: Record<string, unknown>[];
 }
 
+interface SystemChecksReport {
+  checks_run?: number;
+  issue_count?: number;
+  issues?: Record<string, unknown>[];
+}
+
+/** Fecha (UTC) con desplazamiento en días, en formato yyyy-mm-dd. */
+function utcDate(offsetDays = 0): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Vigilante del backup: comprueba que CADA usuario tenga un respaldo de hoy o de
+ * ayer en el bucket 'backups' (carpeta `user_<id>/<fecha>_<hora>`). Si el cron de
+ * las 4:00 falla, hoy nadie se entera; esto lo avisa.
+ */
+async function checkBackups(): Promise<{ checked: number; missing: string[]; error?: string }> {
+  const { data: users, error } = await admin.from("app_users").select("id, display_name");
+  if (error) return { checked: 0, missing: [], error: error.message };
+
+  const { data: roots, error: rootErr } = await admin.storage
+    .from("backups")
+    .list("", { limit: 1000 });
+  if (rootErr) return { checked: 0, missing: [], error: rootErr.message };
+  const rootNames = new Set((roots ?? []).map((o) => o.name));
+
+  const today = utcDate(0);
+  const yesterday = utcDate(-1);
+  const missing: string[] = [];
+
+  for (const u of users ?? []) {
+    const folder = `user_${u.id}`;
+    const label = u.display_name ?? u.id;
+    if (!rootNames.has(folder)) {
+      missing.push(`${label} (no tiene ningún respaldo)`);
+      continue;
+    }
+    const { data: subs, error: subErr } = await admin.storage
+      .from("backups")
+      .list(folder, { limit: 1000 });
+    if (subErr) {
+      missing.push(`${label} (no se pudo leer su carpeta: ${subErr.message})`);
+      continue;
+    }
+    const names = (subs ?? []).map((o) => o.name);
+    const ok = names.some((n) => n.startsWith(today) || n.startsWith(yesterday));
+    if (!ok) missing.push(`${label} (sin respaldo de hoy ni de ayer)`);
+  }
+
+  return { checked: (users ?? []).length, missing };
+}
+
 /** Traduce un hallazgo del revisor a una frase entendible. */
 function describeReconcileError(e: Record<string, unknown>): string {
   const type = String(e["type"] ?? "desconocido");
@@ -221,11 +278,21 @@ function describeReconcileError(e: Record<string, unknown>): string {
   return `${type}${who ? ` (${who})` : ""}: ${JSON.stringify(e)}`;
 }
 
+/** Traduce un hallazgo del revisor de integridad a una frase entendible. */
+function describeSystemIssue(i: Record<string, unknown>): string {
+  const title = String(i["title"] ?? i["code"] ?? "hallazgo");
+  const count = Number(i["count"] ?? 0);
+  const samples = Array.isArray(i["samples"]) ? (i["samples"] as unknown[]).map(String) : [];
+  const ej = samples.length ? ` — ej.: ${samples.slice(0, 3).join(", ")}` : "";
+  return `${title}: ${count} caso(s)${ej}.`;
+}
+
 /**
- * Revisor de cuentas: corre la verificación contable de toda la base y, si
- * encuentra descuadres, avisa AL ADMIN por correo (el suscriptor no se toca:
+ * Revisor de cuentas: corre la verificación contable de toda la base, el revisor de
+ * integridad (cronogramas, estados, mora y coherencia Reportes↔Inicio) y el vigilante
+ * del backup. Si encuentra algo, avisa AL ADMIN por correo (el suscriptor no se toca:
  * es control de calidad interno). Un correo por día como máximo (dedupe).
- * Con ?test=1 fuerza un correo de prueba aunque no haya descuadres.
+ * Con ?test=1 fuerza un correo de prueba aunque no haya hallazgos.
  */
 async function runReconcile(request: Request): Promise<Response> {
   const force = new URL(request.url).searchParams.get("test") === "1";
@@ -235,11 +302,30 @@ async function runReconcile(request: Request): Promise<Response> {
   const report = (typeof data === "string" ? JSON.parse(data) : data) as ReconcileReport | null;
   if (!report) return json({ ok: false, error: "La revisión no devolvió datos" }, 500);
 
+  // Revisor de integridad (cronogramas, estados, mora, coherencia de pantallas)
+  let checks: SystemChecksReport | null = null;
+  const { data: checkData, error: checkError } = await admin.rpc("system_checks", {
+    p_user_id: null,
+  });
+  if (!checkError) {
+    checks = (
+      typeof checkData === "string" ? JSON.parse(checkData) : checkData
+    ) as SystemChecksReport | null;
+  }
+
+  // Vigilante del backup
+  const backups = await checkBackups();
+
   const errorCount = Number(report.error_count ?? 0);
+  const issues = checks?.issues ?? [];
+  const issueCount = issues.length;
+  const missingBackups = backups.missing ?? [];
+  const hasFindings = errorCount > 0 || issueCount > 0 || missingBackups.length > 0;
+
   let notified = false;
   let skipped = false;
 
-  if (errorCount > 0 || force) {
+  if (hasFindings || force) {
     const { data: adm } = await admin
       .from("app_users")
       .select("id")
@@ -257,8 +343,8 @@ async function runReconcile(request: Request): Promise<Response> {
     }
     if (!adminEmail) return json({ ok: false, error: "Admin sin email", report }, 500);
 
-    const today = new Date().toISOString().slice(0, 10);
-    const dedupeKey = `reconcile-${force ? "test" : "errors"}-${today}`;
+    const today = utcDate(0);
+    const dedupeKey = `reconcile-${force ? "test" : "findings"}-${today}`;
     const { data: dup } = await admin
       .from("email_messages")
       .select("id")
@@ -268,28 +354,57 @@ async function runReconcile(request: Request): Promise<Response> {
     if (dup && !force) {
       skipped = true;
     } else {
-      const items = (report.errors ?? [])
+      const reconcileItems = (report.errors ?? [])
         .slice(0, 25)
         .map((e) => `<li>${describeReconcileError(e)}</li>`)
         .join("");
-      const body =
-        errorCount === 0
-          ? `<p><strong>Prueba del revisor de cuentas</strong> (pedida a mano).</p>
-             <p>Resultado: <strong>0 descuadres</strong>. Todo consistente.</p>
-             <p>Resumen: ${report.testable_loans ?? 0} préstamos verificados, ${report.open_ended_skipped ?? 0} abiertos omitidos, ${report.clients_checked ?? 0} clientes revisados.</p>`
-          : `<p>El revisor de cuentas encontró <strong>${errorCount} descuadre(s)</strong>.</p>
-             <ul>${items}</ul>
-             <p>Resumen: ${report.testable_loans ?? 0} préstamos verificados, ${report.open_ended_skipped ?? 0} abiertos omitidos, ${report.clients_checked ?? 0} clientes revisados.</p>
-             <p>Se corrige recalculando las estadísticas del cliente afectado desde el panel de administración.</p>`;
+      const checkItems = issues
+        .slice(0, 25)
+        .map((i) => `<li>${describeSystemIssue(i)}</li>`)
+        .join("");
+      const backupItems = missingBackups
+        .slice(0, 25)
+        .map((b) => `<li>${b}</li>`)
+        .join("");
+
+      const sections: string[] = [];
+      if (errorCount > 0) {
+        sections.push(
+          `<p><strong>Descuadres contables: ${errorCount}</strong></p><ul>${reconcileItems}</ul>`,
+        );
+      }
+      if (issueCount > 0) {
+        sections.push(
+          `<p><strong>Revisor de integridad: ${issueCount} tipo(s) de hallazgo</strong></p><ul>${checkItems}</ul>`,
+        );
+      }
+      if (missingBackups.length > 0) {
+        sections.push(
+          `<p><strong>Backups: ${missingBackups.length} usuario(s) sin respaldo reciente</strong></p><ul>${backupItems}</ul>`,
+        );
+      }
+      if (checkError) {
+        sections.push(`<p>No se pudo correr el revisor de integridad: ${checkError.message}</p>`);
+      }
+      if (backups.error) {
+        sections.push(`<p>No se pudo verificar los backups: ${backups.error}</p>`);
+      }
+
+      const body = hasFindings
+        ? `<p>La revisión automática encontró lo siguiente:</p>${sections.join("")}
+           <p>Resumen contable: ${report.testable_loans ?? 0} préstamos verificados, ${report.open_ended_skipped ?? 0} abiertos omitidos, ${report.clients_checked ?? 0} clientes revisados. Comprobaciones de integridad corridas: ${checks?.checks_run ?? 0}. Backups revisados: ${backups.checked}.</p>
+           <p>Los descuadres contables se corrigen recalculando las estadísticas del cliente desde el panel de administración.</p>`
+        : `<p><strong>Prueba del revisor</strong> (pedida a mano).</p>
+           <p>Resultado: <strong>sin hallazgos</strong>. Todo consistente.</p>
+           <p>Resumen: ${report.testable_loans ?? 0} préstamos verificados, ${report.clients_checked ?? 0} clientes revisados, ${checks?.checks_run ?? 0} comprobaciones de integridad, ${backups.checked} backups revisados.</p>`;
 
       const id = await enqueueAndSend(admin, {
         recipientType: "admin",
         recipientEmail: adminEmail,
         templateKey: "reconcile_alert",
-        subject:
-          errorCount === 0
-            ? "Revisor de cuentas: prueba (todo consistente)"
-            : `Revisor de cuentas: ${errorCount} descuadre(s) detectado(s)`,
+        subject: hasFindings
+          ? `Revisión automática: ${errorCount} descuadre(s), ${issueCount} hallazgo(s), ${missingBackups.length} backup(s) pendiente(s)`
+          : "Revisión automática: prueba (todo consistente)",
         htmlBody: body,
         eventType: "audit.reconcile",
         entityType: "platform",
@@ -300,7 +415,17 @@ async function runReconcile(request: Request): Promise<Response> {
     }
   }
 
-  return json({ ok: true, errors: errorCount, notified, skipped, report });
+  return json({
+    ok: true,
+    errors: errorCount,
+    issues: issueCount,
+    missing_backups: missingBackups.length,
+    notified,
+    skipped,
+    report,
+    checks,
+    backups,
+  });
 }
 
 export async function handleCronRequest(request: Request): Promise<Response | null> {

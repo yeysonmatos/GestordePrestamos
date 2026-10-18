@@ -1002,6 +1002,19 @@ export type Database = {
         }
         Returns: Json
       }
+      loan_balances: {
+        Args: {
+          p_user_id?: string | null
+        }
+        Returns: Json
+      }
+      reports_cartera: {
+        Args: {
+          p_user_id?: string | null
+          p_as_of?: string | null
+        }
+        Returns: Json
+      }
       get_loan_stats: {
         Args: {
           p_from_date: string | null

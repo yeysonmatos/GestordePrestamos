@@ -84,6 +84,37 @@ export async function sendViaSmtp(
   if (!cfg || !isSmtpConfigured(cfg)) {
     return { ok: false, error: "SMTP no configurado o deshabilitado" };
   }
+
+  // 1) Resend: se usa su API HTTP en vez de SMTP. Desde un servidor sin estado (Vercel)
+  //    el SMTP a smtp.resend.com se queda colgado y bloquea toda la cola; la API HTTP
+  //    responde en menos de un segundo. La clave de Resend ES la contraseña del SMTP.
+  if (/smtp\.resend\.com$/i.test(cfg.host) && cfg.pass?.startsWith("re_")) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${cfg.pass}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: `${cfg.from_name} <${cfg.from_email}>`,
+          to: [input.to],
+          subject: input.subject,
+          html: input.html,
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) return { ok: true };
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `Resend respondió ${res.status}: ${text.slice(0, 300)}` };
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: `No se pudo enviar por Resend: ${raw}` };
+    }
+  }
+
+  // 2) Cualquier otro SMTP (configuración propia del usuario): con TIMEOUTS cortos,
+  //    para que un servidor que no responde no deje la cola atascada para siempre.
   try {
     const nodemailer = await import("nodemailer");
     const transporter = nodemailer.createTransport({
@@ -91,6 +122,9 @@ export async function sendViaSmtp(
       port: cfg.port,
       secure: cfg.secure,
       auth: { user: cfg.username, pass: cfg.pass },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
     });
     await transporter.sendMail({
       from: `${cfg.from_name} <${cfg.from_email}>`,
@@ -102,7 +136,7 @@ export async function sendViaSmtp(
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
     const sslHint = /wrong version number|SSL routines/i.test(raw)
-      ? ' — Parece un problema del SSL: si usas puerto 587 (STARTTLS) la casilla "Conexión segura (SSL)" debe estar DESMARCADA. Si usas puerto 465, debe estar MARCADA.'
+      ? ' - Parece un problema del SSL: si usas puerto 587 (STARTTLS) la casilla "Conexión segura (SSL)" debe estar DESMARCADA. Si usas puerto 465, debe estar MARCADA.'
       : "";
     return { ok: false, error: raw + sslHint };
   }

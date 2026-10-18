@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Banknote, Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -12,17 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Chip, Money } from "@/components/money";
-import { useAllInstallments, useLoans } from "@/lib/db";
+import { useLoanBalances, useLoans } from "@/lib/db";
 import { useEntitlements } from "@/lib/entitlements";
-import {
-  daysBetween,
-  formatDate,
-  installmentStatus,
-  LOAN_STATUS_LABEL,
-  rd,
-  todaySD,
-  FREQUENCIES,
-} from "@/lib/finance";
+import { formatDate, LOAN_STATUS_LABEL, rd, FREQUENCIES } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/loans/")({
   head: () => ({
@@ -43,26 +35,16 @@ function LoansPage() {
   const { data: __ent } = useEntitlements();
   const __readOnly = __ent?.readOnly ?? false;
   const { data: loans = [], isLoading } = useLoans();
-  const { data: installments = [] } = useAllInstallments();
+  // Los saldos por préstamo (por cobrar, cuotas vencidas y días de atraso) los calcula
+  // la base en una sola llamada: antes esta pantalla descargaba TODAS las cuotas (con
+  // el préstamo y el cliente embebidos) y las sumaba en el navegador.
+  const {
+    data: balances = new Map<string, { pendiente: number; vencidas: number; dias: number }>(),
+  } = useLoanBalances();
   const [status, setStatus] = useState("en_curso");
   const [freq, setFreq] = useState("todas");
   const [type, setType] = useState("todos");
   const [q, setQ] = useState("");
-
-  const balances = useMemo(() => {
-    const hoy = todaySD();
-    const map = new Map<string, { pendiente: number; vencidas: number; dias: number }>();
-    for (const i of installments) {
-      const cur = map.get(i.loan_id) ?? { pendiente: 0, vencidas: 0, dias: 0 };
-      cur.pendiente += Math.max(Number(i.total_amount) - Number(i.paid_amount), 0);
-      if (installmentStatus(i) === "vencida") {
-        cur.vencidas += 1;
-        cur.dias = Math.max(cur.dias, daysBetween(i.due_date, hoy));
-      }
-      map.set(i.loan_id, cur);
-    }
-    return map;
-  }, [installments]);
 
   const rows = loans
     .filter((l) => (status === "todos" ? true : l.status === status))

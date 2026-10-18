@@ -9,7 +9,7 @@ import { reportsBlocked, useEntitlements } from "@/lib/entitlements";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Money } from "@/components/money";
-import { useAllInstallments, useLoans, usePaymentsInRange } from "@/lib/db";
+import { usePaymentsInRange, useReportsCartera } from "@/lib/db";
 import { csvDownload } from "@/lib/actions";
 import { formatDate, rd, todaySD } from "@/lib/finance";
 
@@ -62,8 +62,6 @@ function Reports() {
   const [filtrosOpen, setFiltrosOpen] = useState(false);
   // Solo los pagos del período elegido (antes se descargaban TODOS y se filtraba aquí).
   const { data: payments = [] } = usePaymentsInRange(desde, hasta);
-  const { data: installments = [] } = useAllInstallments();
-  const { data: loans = [] } = useLoans();
 
   const inRange = useMemo(
     () =>
@@ -82,32 +80,30 @@ function Reports() {
     return { cobrado, interes, capital, mora };
   }, [inRange]);
 
-  const cartera = useMemo(() => {
-    // Fotografía de la cartera al cierre del rango (hasta), no solo "hoy".
-    const lateRef = hasta < today ? hasta : today;
-    let alDia = 0;
-    let vencido = 0;
-    const aging = { d1_30: 0, d31_60: 0, d61_90: 0, d90plus: 0 };
-    for (const i of installments) {
-      if (i.loan?.status !== "en_curso") continue;
-      const due = i.due_date.slice(0, 10);
-      if (due > hasta) continue; // aún no existía al cierre del rango
-      const pending = Number(i.total_amount) - Number(i.paid_amount);
-      if (pending <= 0) continue;
-      if (due >= lateRef) {
-        alDia += pending;
-        continue;
-      }
-      vencido += pending;
-      const days = Math.floor((Date.parse(lateRef) - Date.parse(due)) / 86400000);
-      if (days <= 30) aging.d1_30 += pending;
-      else if (days <= 60) aging.d31_60 += pending;
-      else if (days <= 90) aging.d61_90 += pending;
-      else aging.d90plus += pending;
-    }
-    const total = alDia + vencido;
-    return { alDia, vencido, total, tasa: total ? (vencido / total) * 100 : 0, aging };
-  }, [installments, hasta, today]);
+  const { data: carteraData } = useReportsCartera(hasta);
+
+  // La cartera la calcula la base (misma regla que el Inicio: incluye el período de
+  // interés vencido de los préstamos abiertos). Antes se calculaba aquí recorriendo
+  // todas las cuotas y NO contaba los préstamos abiertos ⇒ la "morosidad" no cuadraba
+  // con el "Vencido por cobrar" del Inicio.
+  const cartera = {
+    alDia: Number(carteraData?.al_dia ?? 0),
+    vencido: Number(carteraData?.vencido ?? 0),
+    total: Number(carteraData?.total ?? 0),
+    tasa: Number(carteraData?.tasa ?? 0),
+    mora: Number(carteraData?.mora_acumulada ?? 0),
+    aging: {
+      d1_30: Number(carteraData?.aging?.d1_30 ?? 0),
+      d31_60: Number(carteraData?.aging?.d31_60 ?? 0),
+      d61_90: Number(carteraData?.aging?.d61_90 ?? 0),
+      d90plus: Number(carteraData?.aging?.d90plus ?? 0),
+    },
+  };
+  const resumen = {
+    enCurso: Number(carteraData?.loans_active ?? 0),
+    pagados: Number(carteraData?.loans_paid ?? 0),
+    archivados: Number(carteraData?.loans_archived ?? 0),
+  };
 
   const porMes = useMemo(() => {
     const map = new Map<string, { mes: string; capital: number; interes: number; mora: number }>();
@@ -239,11 +235,12 @@ function Reports() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Card label="Cobrado" value={totals.cobrado} />
         <Card label="Ganancia (interés)" value={totals.interes} tone="success" />
         <Card label="Capital recuperado" value={totals.capital} />
         <Card label="Mora cobrada" value={totals.mora} tone="danger" />
+        <Card label="Mora por cobrar" value={cartera.mora} tone="danger" />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -294,23 +291,9 @@ function Reports() {
       <div className="surface mt-4 p-5">
         <h2 className="font-display text-base font-semibold">Resumen de préstamos</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <Mini
-            label="En curso"
-            value={
-              loans.filter(
-                (l) => l.status === "en_curso" && String(l.start_date).slice(0, 10) <= hasta,
-              ).length
-            }
-          />
-          <Mini
-            label="Pagados"
-            value={
-              loans.filter(
-                (l) => l.status === "pagado" && String(l.start_date).slice(0, 10) <= hasta,
-              ).length
-            }
-          />
-          <Mini label="Archivados" value={loans.filter((l) => l.status === "archivado").length} />
+          <Mini label="En curso" value={resumen.enCurso} />
+          <Mini label="Pagados" value={resumen.pagados} />
+          <Mini label="Archivados" value={resumen.archivados} />
         </div>
       </div>
     </>

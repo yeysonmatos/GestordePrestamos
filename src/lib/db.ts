@@ -424,6 +424,8 @@ export const qk = {
   payments: (loanId: string) => ["payments", loanId] as const,
   allInstallments: ["installments-all"] as const,
   dashboard: ["dashboard-summary"] as const,
+  loanBalances: ["loan-balances"] as const,
+  reportsCartera: (asOf: string | null) => ["reports-cartera", asOf] as const,
   paymentsForLoans: (ids: string[]) => ["payments-for-loans", ids] as const,
   recentPayments: (limit: number) => ["payments-recent", limit] as const,
   paymentsInRange: (from: string | null, to: string | null) =>
@@ -568,6 +570,58 @@ export function useAllInstallments() {
   });
 }
 
+/** Saldos por préstamo (por cobrar, cuotas vencidas y días de atraso) calculados en la base. */
+export type LoanBalance = { pendiente: number; vencidas: number; dias: number };
+
+export function useLoanBalances() {
+  return useQuery({
+    queryKey: qk.loanBalances,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("loan_balances", { p_user_id: null });
+      if (error) throw new Error(error.message);
+      const rows =
+        (data as unknown as { balances?: (LoanBalance & { loan_id: string })[] } | null)
+          ?.balances ?? [];
+      const map = new Map<string, LoanBalance>();
+      for (const b of rows) {
+        map.set(b.loan_id, {
+          pendiente: Number(b.pendiente ?? 0),
+          vencidas: Number(b.vencidas ?? 0),
+          dias: Number(b.dias ?? 0),
+        });
+      }
+      return map;
+    },
+  });
+}
+
+/** Estado de la cartera de Reportes (calculado en la base, misma regla que el Inicio). */
+export type ReportsCartera = {
+  al_dia: number;
+  vencido: number;
+  total: number;
+  tasa: number;
+  mora_acumulada: number;
+  aging: { d1_30: number; d31_60: number; d61_90: number; d90plus: number };
+  loans_active: number;
+  loans_paid: number;
+  loans_archived: number;
+};
+
+export function useReportsCartera(asOf: string | null) {
+  return useQuery({
+    queryKey: qk.reportsCartera(asOf),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("reports_cartera", {
+        p_user_id: null,
+        p_as_of: asOf,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? null) as unknown as ReportsCartera | null;
+    },
+  });
+}
+
 /** Resumen del Inicio calculado en la base (una sola llamada, sin descargar tablas). */
 export type DashboardSummary = {
   capital_prestado: number;
@@ -576,6 +630,7 @@ export type DashboardSummary = {
   interes_ganado: number;
   por_cobrar: number;
   en_mora: number;
+  mora_acumulada: number;
   mora_cuotas: number;
   mora_abiertos: number;
   vencidas: number;
