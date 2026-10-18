@@ -451,6 +451,8 @@ function LoanDetail() {
             <Button
               size="sm"
               variant="accent"
+              className="px-2 sm:px-3"
+              aria-label="Cobrar interés"
               onClick={() =>
                 setTarget({
                   mode: "open",
@@ -461,18 +463,36 @@ function LoanDetail() {
                 })
               }
             >
-              Cobrar interés
+              Cobrar
+              <span className="hidden sm:inline">&nbsp;interés</span>
             </Button>
           )}
-          <Button size="sm" variant="secondary" onClick={() => setAbono("")}>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="px-2 sm:px-3"
+            aria-label="Abono a capital"
+            onClick={() => setAbono("")}
+          >
             Abono a capital
           </Button>
-          <Button size="sm" variant="secondary" onClick={() => setLiquidar(true)}>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="px-2 sm:px-3"
+            onClick={() => setLiquidar(true)}
+          >
             Liquidar
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" aria-label="Más acciones" title="Más acciones">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto"
+                aria-label="Más acciones"
+                title="Más acciones"
+              >
                 <EllipsisVertical className="size-4" />
               </Button>
             </DropdownMenuTrigger>
