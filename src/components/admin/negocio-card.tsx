@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ban, CreditCard, Eye, MoreHorizontal, Receipt, ShieldCheck } from "lucide-react";
+import { Ban, CreditCard, EllipsisVertical, Eye, Receipt, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -90,9 +90,7 @@ export function NegocioCard({ negocio }: { negocio: AdminNegocio }) {
             <Link to="/admin/users/$id" params={{ id: negocio.id }} className="hover:underline">
               {negocio.business_name}
             </Link>
-            {isSelf && (
-              <span className="ml-2 text-xs font-normal text-muted-foreground">(tú)</span>
-            )}
+            {isSelf && <span className="ml-2 text-xs font-normal text-muted-foreground">(tú)</span>}
           </p>
           <p className="truncate text-xs text-muted-foreground">
             {negocio.owner_name || "Sin dueño registrado"}
@@ -116,7 +114,7 @@ export function NegocioCard({ negocio }: { negocio: AdminNegocio }) {
                 aria-label="Acciones"
                 className="size-11 p-0 text-muted-foreground hover:text-foreground"
               >
-                <MoreHorizontal className="size-5" />
+                <EllipsisVertical className="size-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
@@ -141,7 +139,11 @@ export function NegocioCard({ negocio }: { negocio: AdminNegocio }) {
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    className={negocio.blocked ? "text-success focus:text-success" : "text-destructive focus:text-destructive"}
+                    className={
+                      negocio.blocked
+                        ? "text-success focus:text-success"
+                        : "text-destructive focus:text-destructive"
+                    }
                     onSelect={() => acceso.mutate(!negocio.blocked)}
                   >
                     {negocio.blocked ? (
@@ -216,7 +218,11 @@ export function NegocioCard({ negocio }: { negocio: AdminNegocio }) {
             <Button variant="secondary" onClick={() => setPlanOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="accent" disabled={!cambiado || guardarPlan.isPending} onClick={() => guardarPlan.mutate()}>
+            <Button
+              variant="accent"
+              disabled={!cambiado || guardarPlan.isPending}
+              onClick={() => guardarPlan.mutate()}
+            >
               {guardarPlan.isPending ? "Guardando…" : "Guardar cambios"}
             </Button>
           </DialogFooter>

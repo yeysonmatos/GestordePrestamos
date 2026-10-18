@@ -1,7 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Download, History, MoreHorizontal, Tag, Wallet, X } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  History,
+  EllipsisVertical,
+  Tag,
+  Wallet,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/app-shell";
 import { Money } from "@/components/money";
@@ -101,14 +112,17 @@ function PaymentCard({ pago }: { pago: AdminPayment }) {
                   aria-label="Acciones del pago"
                   className="size-11 p-0 text-muted-foreground hover:text-foreground"
                 >
-                  <MoreHorizontal className="size-5" />
+                  <EllipsisVertical className="size-5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem className="text-success focus:text-success" onSelect={confirmar}>
                   <Check className="mr-2 size-4" /> Confirmar pago
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={rechazar}>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={rechazar}
+                >
                   <X className="mr-2 size-4" /> Rechazar pago
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -143,9 +157,7 @@ function AdminPayments() {
   // Pendientes primero, luego por fecha (como GP)
   const items = useMemo(() => {
     const list = [...(data?.items ?? [])];
-    return list.sort(
-      (a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1),
-    );
+    return list.sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
   }, [data]);
 
   const counts = data?.counts ?? { pending: 0, confirmed: 0, rejected: 0 };
@@ -206,17 +218,40 @@ function AdminPayments() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <Kpi label="Pendientes" value={String(counts.pending)} hint="Por confirmar" icon={History} />
-        <Kpi label="Confirmados" value={String(counts.confirmed)} hint="Histórico" icon={CheckCircle2} />
-        <Kpi label="Total cobrado (confirmado)" money={total} hint="Toda la plataforma" icon={Wallet} />
+        <Kpi
+          label="Pendientes"
+          value={String(counts.pending)}
+          hint="Por confirmar"
+          icon={History}
+        />
+        <Kpi
+          label="Confirmados"
+          value={String(counts.confirmed)}
+          hint="Histórico"
+          icon={CheckCircle2}
+        />
+        <Kpi
+          label="Total cobrado (confirmado)"
+          money={total}
+          hint="Toda la plataforma"
+          icon={Wallet}
+        />
       </div>
 
       <div className="mt-5 flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Mes</Label>
-          <Input type="month" className="h-11 min-w-0" value={month} onChange={(e) => cambiarFiltro(() => setMonth(e.target.value))} />
+          <Input
+            type="month"
+            className="h-11 min-w-0"
+            value={month}
+            onChange={(e) => cambiarFiltro(() => setMonth(e.target.value))}
+          />
         </div>
-        <Select value={method || "all"} onValueChange={(v) => cambiarFiltro(() => setMethod(v === "all" ? "" : v))}>
+        <Select
+          value={method || "all"}
+          onValueChange={(v) => cambiarFiltro(() => setMethod(v === "all" ? "" : v))}
+        >
           <SelectTrigger className="h-11 w-40">
             <SelectValue placeholder="Todo método" />
           </SelectTrigger>
@@ -228,7 +263,10 @@ function AdminPayments() {
             <SelectItem value="other">Otro</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={userId || "all"} onValueChange={(v) => cambiarFiltro(() => setUserId(v === "all" ? "" : v))}>
+        <Select
+          value={userId || "all"}
+          onValueChange={(v) => cambiarFiltro(() => setUserId(v === "all" ? "" : v))}
+        >
           <SelectTrigger className="h-11 w-48">
             <SelectValue placeholder="Todo suscriptor" />
           </SelectTrigger>
@@ -243,12 +281,14 @@ function AdminPayments() {
         </Select>
         {hayFiltros && (
           <button
-            onClick={() => cambiarFiltro(() => {
-              setMonth("");
-              setMethod("");
-              setUserId("");
-              setStatus("todas");
-            })}
+            onClick={() =>
+              cambiarFiltro(() => {
+                setMonth("");
+                setMethod("");
+                setUserId("");
+                setStatus("todas");
+              })
+            }
             className="min-h-11 px-3 text-sm text-muted-foreground hover:text-foreground"
           >
             Limpiar filtros
@@ -266,7 +306,9 @@ function AdminPayments() {
           >
             {s === "todas" ? "Todas" : PAGO_STATUS_LABEL[s]}
             {s !== "todas" && (
-              <span className="ml-1 rounded-full bg-background/25 px-1.5 text-[11px]">{counts[s]}</span>
+              <span className="ml-1 rounded-full bg-background/25 px-1.5 text-[11px]">
+                {counts[s]}
+              </span>
             )}
           </Button>
         ))}
