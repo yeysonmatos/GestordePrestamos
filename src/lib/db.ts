@@ -423,7 +423,11 @@ export const qk = {
   installments: (loanId: string) => ["installments", loanId] as const,
   payments: (loanId: string) => ["payments", loanId] as const,
   allInstallments: ["installments-all"] as const,
-  allPayments: ["payments-all"] as const,
+  dashboard: ["dashboard-summary"] as const,
+  paymentsForLoans: (ids: string[]) => ["payments-for-loans", ids] as const,
+  recentPayments: (limit: number) => ["payments-recent", limit] as const,
+  paymentsInRange: (from: string | null, to: string | null) =>
+    ["payments-range", from, to] as const,
   subscription: ["subscription"] as const,
   subscriptionPayments: ["subscription-payments"] as const,
 };
@@ -564,15 +568,95 @@ export function useAllInstallments() {
   });
 }
 
-export function useAllPayments() {
+/** Resumen del Inicio calculado en la base (una sola llamada, sin descargar tablas). */
+export type DashboardSummary = {
+  capital_prestado: number;
+  loans_total: number;
+  capital_recuperado: number;
+  interes_ganado: number;
+  por_cobrar: number;
+  en_mora: number;
+  mora_cuotas: number;
+  mora_abiertos: number;
+  vencidas: number;
+  vencidas_count: number;
+  clientes_morosos: number;
+  cobro_hoy: number;
+  hoy_count: number;
+  proximos: {
+    number: number;
+    due_date: string;
+    pending: number;
+    client_name: string | null;
+    loan_display_id: string | null;
+    loan_id: string;
+  }[];
+  activos: number;
+  clientes_activos: number;
+  meses: { key: string; ingresos: number; prestado: number }[];
+};
+
+export function useDashboardSummary() {
   return useQuery({
-    queryKey: qk.allPayments,
+    queryKey: qk.dashboard,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("dashboard_summary", { p_user_id: null });
+      if (error) throw new Error(error.message);
+      return (data ?? null) as unknown as DashboardSummary | null;
+    },
+  });
+}
+
+/** Pagos de préstamos concretos (p. ej. los ABIERTOS, para contar períodos de interés). */
+export function usePaymentsForLoans(loanIds: string[]) {
+  return useQuery({
+    queryKey: qk.paymentsForLoans(loanIds),
+    enabled: loanIds.length > 0,
+    queryFn: async () => {
+      const rows = await unwrap<PaymentRow[]>(
+        supabase
+          .from("payments")
+          .select("*")
+          .in("loan_id", loanIds)
+          .neq("status", "reversed")
+          .order("created_at", { ascending: false }),
+      );
+      return rows.map(toPayment);
+    },
+  });
+}
+
+/** Historial de pagos acotado: solo los N más recientes (Cobros -> Historial). */
+export function useRecentPayments(limit: number) {
+  return useQuery({
+    queryKey: qk.recentPayments(limit),
     queryFn: async () => {
       const rows = await unwrap<PaymentRow[]>(
         supabase
           .from("payments")
           .select("*")
           .neq("status", "reversed")
+          .order("created_at", { ascending: false })
+          .limit(limit),
+      );
+      return rows.map(toPayment);
+    },
+  });
+}
+
+/** Pagos dentro de un rango de fechas (Calendario del mes / Reportes por período). */
+export function usePaymentsInRange(from: string | null, to: string | null) {
+  return useQuery({
+    queryKey: qk.paymentsInRange(from, to),
+    enabled: Boolean(from && to),
+    queryFn: async () => {
+      const rows = await unwrap<PaymentRow[]>(
+        supabase
+          .from("payments")
+          .select("*")
+          .neq("status", "reversed")
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`)
           .order("created_at", { ascending: false }),
       );
       return rows.map(toPayment);

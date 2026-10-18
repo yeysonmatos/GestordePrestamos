@@ -2,12 +2,8 @@ import { useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  useAllInstallments,
-  useAllPayments,
-  useClients,
-  useLoans,
-} from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
+import { toPayment, useAllInstallments, useClients, useLoans } from "@/lib/db";
 import { installmentStatus, nextDueDateAfter, todaySD } from "@/lib/finance";
 import { downloadXlsx } from "@/lib/xlsx";
 
@@ -27,7 +23,6 @@ export function ExportPanel() {
   const { data: loans = [] } = useLoans();
   const { data: clients = [] } = useClients();
   const { data: installments = [] } = useAllInstallments();
-  const { data: payments = [] } = useAllPayments();
   const [busy, setBusy] = useState<string | null>(null);
 
   const clientById = new Map(clients.map((c) => [c.id, c]));
@@ -48,8 +43,18 @@ export function ExportPanel() {
 
   function exportLoans() {
     const headers = [
-      "No.", "Cliente", "Teléfono", "Monto", "Por cobrar", "Tipo", "Frecuencia",
-      "Cuotas pagadas", "Cuotas total", "Estado", "Inicio", "Próximo vencimiento",
+      "No.",
+      "Cliente",
+      "Teléfono",
+      "Monto",
+      "Por cobrar",
+      "Tipo",
+      "Frecuencia",
+      "Cuotas pagadas",
+      "Cuotas total",
+      "Estado",
+      "Inicio",
+      "Próximo vencimiento",
     ];
     const rows: Row[] = loans
       .filter((l) => l.status !== "archivado")
@@ -62,7 +67,7 @@ export function ExportPanel() {
           .sort()[0];
         const prox = l.open_ended
           ? nextDueDateAfter(l.first_payment_date, l.payment_day, today)
-          : next ?? "";
+          : (next ?? "");
         return [
           l.loan_id,
           c?.full_name ?? "",
@@ -81,12 +86,29 @@ export function ExportPanel() {
     return downloadXlsx(headers, rows, `prestamos-${stamp()}`);
   }
 
-  function exportPayments() {
+  async function exportPayments() {
+    // Se descargan al pulsar (antes se cargaban al abrir la pantalla, sin necesidad).
+    const { data, error } = await supabase
+      .from("payments")
+      .select("*")
+      .neq("status", "reversed")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    const allPayments = (data ?? []).map(toPayment);
     const headers = [
-      "No.", "Cliente", "Monto", "Capital", "Interés", "Mora", "Tipo", "Método",
-      "Estado", "Fecha", "Notas",
+      "No.",
+      "Cliente",
+      "Monto",
+      "Capital",
+      "Interés",
+      "Mora",
+      "Tipo",
+      "Método",
+      "Estado",
+      "Fecha",
+      "Notas",
     ];
-    const rows: Row[] = payments.map((p) => {
+    const rows: Row[] = allPayments.map((p) => {
       const loan = loanById.get(p.loan_id);
       return [
         loan?.loan_id ?? p.loan_id,
@@ -106,7 +128,16 @@ export function ExportPanel() {
   }
 
   function exportPending() {
-    const headers = ["No.", "Cliente", "Teléfono", "Cuota", "Monto", "Frecuencia", "Vence", "Estado"];
+    const headers = [
+      "No.",
+      "Cliente",
+      "Teléfono",
+      "Cuota",
+      "Monto",
+      "Frecuencia",
+      "Vence",
+      "Estado",
+    ];
     const rows: Row[] = installments
       .filter((i) => i.loan?.status === "en_curso" && installmentStatus(i) !== "pagada")
       .map((i) => {

@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Money } from "@/components/money";
-import { useAllInstallments, useAllPayments, useLoans } from "@/lib/db";
+import { useAllInstallments, useLoans, usePaymentsForLoans, usePaymentsInRange } from "@/lib/db";
 import { addPeriods, formatDate, installmentStatus, rd, todaySD, toISO } from "@/lib/finance";
 import type { Frequency } from "@/lib/finance";
 
@@ -41,7 +41,6 @@ type DayInfo = { count: number; amount: number; overdue: number; collected: numb
 function CalendarPage() {
   const { data: installments = [] } = useAllInstallments();
   const { data: loans = [] } = useLoans();
-  const { data: payments = [] } = useAllPayments();
   const today = todaySD();
   const [cursor, setCursor] = useState(() => {
     const [y, m] = today.split("-").map(Number);
@@ -49,13 +48,28 @@ function CalendarPage() {
   });
   const [selected, setSelected] = useState(today);
 
+  // Pagos acotados: los de préstamos ABIERTOS (períodos de interés) y solo los del
+  // mes que se está viendo (antes se descargaban TODOS los pagos del usuario).
+  const openLoanIds = useMemo(() => loans.filter((l) => l.open_ended).map((l) => l.id), [loans]);
+  const { data: interestPayments = [] } = usePaymentsForLoans(openLoanIds);
+  const monthFrom = `${cursor.y}-${String(cursor.m + 1).padStart(2, "0")}-01`;
+  const monthTo = `${cursor.y}-${String(cursor.m + 1).padStart(2, "0")}-${String(
+    new Date(cursor.y, cursor.m + 1, 0).getDate(),
+  ).padStart(2, "0")}`;
+  // Se incluye también el mes del día seleccionado (por si se navegó de mes sin
+  // volver a tocar un día) para que su detalle siga mostrando lo cobrado.
+  const selMonth = selected.slice(0, 7);
+  const rangeFrom = selMonth < monthFrom.slice(0, 7) ? `${selMonth}-01` : monthFrom;
+  const rangeTo = selMonth > monthTo.slice(0, 7) ? selected : monthTo;
+  const { data: payments = [] } = usePaymentsInRange(rangeFrom, rangeTo);
+
   const loanById = useMemo(() => new Map(loans.map((l) => [l.id, l])), [loans]);
 
   const openRows = useMemo(() => {
     // Igual que Cobros: el período que se debe es el primero sin pagar
     // (primer pago + pagos de interés hechos), no el próximo.
     const periodosPagados = new Map<string, number>();
-    for (const p of payments) {
+    for (const p of interestPayments) {
       if (p.reversed || p.installment_id) continue;
       if (Number(p.principal_portion) > 0) continue;
       periodosPagados.set(p.loan_id, (periodosPagados.get(p.loan_id) ?? 0) + 1);
@@ -71,7 +85,7 @@ function CalendarPage() {
           periodosPagados.get(l.id) ?? 0,
         ),
       }));
-  }, [loans, payments]);
+  }, [loans, interestPayments]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, DayInfo>();

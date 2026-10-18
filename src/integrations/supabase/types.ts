@@ -996,6 +996,12 @@ export type Database = {
         }
         Returns: Json
       }
+      dashboard_summary: {
+        Args: {
+          p_user_id?: string | null
+        }
+        Returns: Json
+      }
       get_loan_stats: {
         Args: {
           p_from_date: string | null

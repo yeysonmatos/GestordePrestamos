@@ -9,7 +9,7 @@ import { reportsBlocked, useEntitlements } from "@/lib/entitlements";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Money } from "@/components/money";
-import { useAllInstallments, useAllPayments, useLoans } from "@/lib/db";
+import { useAllInstallments, useLoans, usePaymentsInRange } from "@/lib/db";
 import { csvDownload } from "@/lib/actions";
 import { formatDate, rd, todaySD } from "@/lib/finance";
 
@@ -56,13 +56,14 @@ function ReportsGate() {
 }
 
 function Reports() {
-  const { data: payments = [] } = useAllPayments();
-  const { data: installments = [] } = useAllInstallments();
-  const { data: loans = [] } = useLoans();
   const today = todaySD();
   const [desde, setDesde] = useState(`${today.slice(0, 4)}-01-01`);
   const [hasta, setHasta] = useState(today);
   const [filtrosOpen, setFiltrosOpen] = useState(false);
+  // Solo los pagos del período elegido (antes se descargaban TODOS y se filtraba aquí).
+  const { data: payments = [] } = usePaymentsInRange(desde, hasta);
+  const { data: installments = [] } = useAllInstallments();
+  const { data: loans = [] } = useLoans();
 
   const inRange = useMemo(
     () =>

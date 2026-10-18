@@ -15,24 +15,9 @@ import { PageHeader } from "@/components/app-shell";
 import { Money } from "@/components/money";
 
 import { Button } from "@/components/ui/button";
-import {
-  useAllInstallments,
-  useAllPayments,
-  useClients,
-  useLoans,
-  useSubscription,
-} from "@/lib/db";
+import { useDashboardSummary, useSubscription } from "@/lib/db";
 import { useEntitlements } from "@/lib/entitlements";
-import {
-  addPeriods,
-  formatDate,
-  installmentStatus,
-  rd,
-  todaySD,
-  daysBetween,
-  MONTHS_ES,
-} from "@/lib/finance";
-import type { Frequency } from "@/lib/finance";
+import { formatDate, rd, todaySD, daysBetween, MONTHS_ES } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -81,10 +66,10 @@ function Kpi({
 function Dashboard() {
   const { data: __ent } = useEntitlements();
   const __readOnly = __ent?.readOnly ?? false;
-  const { data: loans = [] } = useLoans();
-  const { data: clients = [] } = useClients();
-  const { data: installments = [] } = useAllInstallments();
-  const { data: payments = [] } = useAllPayments();
+  // Todo el resumen lo calcula la base en UNA sola llamada (RPC dashboard_summary):
+  // antes esta pantalla descargaba todos los préstamos, clientes, cuotas y pagos
+  // del usuario y calculaba en el navegador (lento con historial grande).
+  const { data: summary } = useDashboardSummary();
   const { data: sub } = useSubscription();
   const today = todaySD();
 
@@ -95,120 +80,32 @@ function Dashboard() {
   const subExpiringSoon =
     !!sub && !subExpired && subDaysLeft !== null && sub.status !== "cancelled" && subDaysLeft <= 3;
 
-  const stats = useMemo(() => {
-    const active = loans.filter((l) => l.status === "en_curso");
-    // Prestado = capital de TODOS los préstamos no archivados (en curso + pagados),
-    // para que se cumpla la identidad Prestado = Recuperado + Por cobrar (igual que GP).
-    const capitalPrestado = loans
-      .filter((l) => l.status !== "archivado")
-      .reduce((s, l) => s + Number(l.principal), 0);
-    let capitalRecuperado = 0;
-    let interesGanado = 0;
-    for (const p of payments) {
-      capitalRecuperado += Number(p.principal_portion);
-      interesGanado += Number(p.interest_portion) + Number(p.late_fee);
-    }
-    const activeIds = new Set(active.map((l) => l.id));
-    const vivas = installments.filter((i) => activeIds.has(i.loan_id));
-    // "Por cobrar" = solo capital pendiente (principal menos capital ya pagado),
-    // igual que la identidad contable del admin (Prestado = Recuperado + Pendiente).
-    const capitalPagadoByLoan = new Map<string, number>();
-    for (const p of payments) {
-      capitalPagadoByLoan.set(
-        p.loan_id,
-        (capitalPagadoByLoan.get(p.loan_id) ?? 0) + Number(p.principal_portion),
-      );
-    }
-    const porCobrar = active.reduce(
-      (s, l) => s + Math.max(0, Number(l.principal) - (capitalPagadoByLoan.get(l.id) ?? 0)),
-      0,
-    );
-    const vencidas = vivas.filter((i) => installmentStatus(i) === "vencida");
-    // Los préstamos ABIERTOS (solo interés) no generan cuotas: su período pendiente se
-    // calcula igual que en Cobros -> Vencidos (primer pago + pagos de interés hechos),
-    // para que Inicio y Cobros muestren la misma mora.
-    const interesesPagadosByLoan = new Map<string, number>();
-    for (const p of payments) {
-      if (p.reversed || p.installment_id) continue;
-      if (Number(p.principal_portion) > 0) continue;
-      interesesPagadosByLoan.set(p.loan_id, (interesesPagadosByLoan.get(p.loan_id) ?? 0) + 1);
-    }
-    const abiertosVencidos = active.filter((l) => {
-      if (!l.open_ended || !(Number(l.installment_amount) > 0)) return false;
-      const due = addPeriods(
-        l.first_payment_date,
-        (l.frequency as Frequency) || "mensual",
-        interesesPagadosByLoan.get(l.id) ?? 0,
-      );
-      return daysBetween(due, today) > 0;
-    });
-    const abiertosMora = abiertosVencidos.reduce((s, l) => s + Number(l.installment_amount), 0);
-    const enMora =
-      vencidas.reduce(
-        (s, i) => s + Math.max(Number(i.total_amount) - Number(i.paid_amount), 0),
-        0,
-      ) + abiertosMora;
-    const clientesMorosos = new Set(
-      [
-        ...vencidas.map((i) => i.loan?.client?.id),
-        ...abiertosVencidos.map((l) => l.client_id),
-      ].filter(Boolean) as string[],
-    );
-    const hoy = vivas.filter((i) => i.due_date === today && installmentStatus(i) !== "pagada");
-    const cobroHoy = hoy.reduce(
-      (s, i) => s + Math.max(Number(i.total_amount) - Number(i.paid_amount), 0),
-      0,
-    );
-    const proximos = vivas
-      .filter((i) => {
-        const d = daysBetween(today, i.due_date);
-        return d > 0 && d <= 7 && installmentStatus(i) !== "pagada";
-      })
-      .slice(0, 6);
+  const stats = {
+    capitalPrestado: Number(summary?.capital_prestado ?? 0),
+    capitalRecuperado: Number(summary?.capital_recuperado ?? 0),
+    interesGanado: Number(summary?.interes_ganado ?? 0),
+    porCobrar: Number(summary?.por_cobrar ?? 0),
+    enMora: Number(summary?.en_mora ?? 0),
+    vencidasCount: Number(summary?.vencidas_count ?? 0),
+    clientesMorosos: Number(summary?.clientes_morosos ?? 0),
+    cobroHoy: Number(summary?.cobro_hoy ?? 0),
+    hoyCount: Number(summary?.hoy_count ?? 0),
+    proximos: summary?.proximos ?? [],
+    activos: Number(summary?.activos ?? 0),
+    clientesActivos: Number(summary?.clientes_activos ?? 0),
+    loansTotal: Number(summary?.loans_total ?? 0),
+  };
 
-    return {
-      capitalPrestado,
-      capitalRecuperado,
-      interesGanado,
-      porCobrar,
-      enMora,
-      vencidas,
-      // "Cobros vencidos": cuotas atrasadas + períodos de interés vencidos de préstamos
-      // abiertos (esos no generan cuotas pero sí se cobran en Cobros -> Vencidos).
-      vencidasCount: vencidas.length + abiertosVencidos.length,
-      clientesMorosos: clientesMorosos.size,
-      cobroHoy,
-      hoyCount: hoy.length,
-      proximos,
-      activos: active.length,
-      clientesActivos: new Set(active.map((l) => l.client_id)).size,
-    };
-  }, [loans, installments, payments, today]);
-
-  const chartData = useMemo(() => {
-    const months: { key: string; label: string; ingresos: number; prestado: number }[] = [];
-    const base = new Date();
-    for (let k = 5; k >= 0; k--) {
-      const d = new Date(base.getFullYear(), base.getMonth() - k, 1);
-      months.push({
-        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-        label: MONTHS_ES[d.getMonth()] ?? "",
-        ingresos: 0,
-        prestado: 0,
-      });
-    }
-    const index = new Map(months.map((m) => [m.key, m]));
-    for (const p of payments) {
-      const key = p.paid_at.slice(0, 7);
-      const row = index.get(key);
-      if (row) row.ingresos += Number(p.amount);
-    }
-    for (const l of loans) {
-      const row = index.get(l.start_date.slice(0, 7));
-      if (row) row.prestado += Number(l.principal);
-    }
-    return months;
-  }, [payments, loans]);
+  const chartData = useMemo(
+    () =>
+      (summary?.meses ?? []).map((m) => ({
+        key: m.key,
+        label: MONTHS_ES[Number(m.key.slice(5, 7)) - 1] ?? "",
+        ingresos: Number(m.ingresos ?? 0),
+        prestado: Number(m.prestado ?? 0),
+      })),
+    [summary],
+  );
 
   return (
     <>
@@ -382,19 +279,17 @@ function Dashboard() {
           ) : (
             <ul className="divide-y divide-border">
               {stats.proximos.map((i) => (
-                <li key={i.id} className="flex items-center justify-between gap-3 py-3">
+                <li
+                  key={`${i.loan_id}-${i.number}`}
+                  className="flex items-center justify-between gap-3 py-3"
+                >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">
-                      {i.loan?.client?.full_name ?? "Cliente"}
-                    </p>
+                    <p className="truncate text-sm font-semibold">{i.client_name ?? "Cliente"}</p>
                     <p className="text-xs text-muted-foreground">
                       Cuota {i.number} · {formatDate(i.due_date)}
                     </p>
                   </div>
-                  <Money
-                    value={Number(i.total_amount) - Number(i.paid_amount)}
-                    className="text-sm font-semibold"
-                  />
+                  <Money value={Number(i.pending)} className="text-sm font-semibold" />
                 </li>
               ))}
             </ul>
@@ -402,7 +297,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {loans.length === 0 && (
+      {stats.loansTotal === 0 && (
         <div className="surface mt-4 flex flex-col items-center gap-3 p-10 text-center">
           <Wallet className="size-8 text-accent" />
           <h2 className="font-display text-lg font-semibold">Aún no tienes préstamos</h2>

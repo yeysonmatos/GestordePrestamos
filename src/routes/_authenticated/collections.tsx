@@ -9,7 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Chip, Money, StatusChip } from "@/components/money";
 import { PayDialog, ReceiptDialog } from "@/components/pay-dialog";
 import type { PayTarget, Receipt } from "@/components/pay-dialog";
-import { useAllInstallments, useAllPayments, useLoans, useProfile } from "@/lib/db";
+import {
+  useAllInstallments,
+  useLoans,
+  usePaymentsForLoans,
+  useProfile,
+  useRecentPayments,
+} from "@/lib/db";
 import type { InstallmentFull, LoanWithClient } from "@/lib/db";
 import { getPaymentLabel } from "@/lib/payment-labels";
 import { buildCollectReminder, whatsappUrl } from "@/lib/messages";
@@ -50,14 +56,18 @@ type Row =
 function Collections() {
   const { data: installments = [] } = useAllInstallments();
   const { data: loans = [] } = useLoans();
-  const { data: payments = [] } = useAllPayments();
+  // Los pagos se cargan acotados: los de préstamos ABIERTOS (para contar sus períodos
+  // de interés) y solo los últimos N para el historial (antes se descargaban TODOS).
+  const openLoanIds = useMemo(() => loans.filter((l) => l.open_ended).map((l) => l.id), [loans]);
+  const { data: interestPayments = [] } = usePaymentsForLoans(openLoanIds);
+  const [histLimit, setHistLimit] = useState(20);
+  const { data: payments = [] } = useRecentPayments(histLimit + 1);
   const { data: profile } = useProfile();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("Hoy");
   const [q, setQ] = useState("");
   const [target, setTarget] = useState<PayTarget | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
-  const [histLimit, setHistLimit] = useState(20);
   const today = todaySD();
   const grace = profile?.grace_days ?? 0;
   const business = profile?.business_name ?? "Mi Negocio";
@@ -69,7 +79,7 @@ function Collections() {
     // Cada pago de interés (sin cuota y sin capital) cubre un período: el que se
     // debe es el primero sin pagar, NO el próximo (ese era el bug de "Vencidos").
     const periodosPagados = new Map<string, number>();
-    for (const p of payments) {
+    for (const p of interestPayments) {
       if (p.reversed || p.installment_id) continue;
       if (Number(p.principal_portion) > 0) continue;
       periodosPagados.set(p.loan_id, (periodosPagados.get(p.loan_id) ?? 0) + 1);
@@ -85,7 +95,7 @@ function Collections() {
           periodosPagados.get(l.id) ?? 0,
         ),
       }));
-  }, [loans, payments]);
+  }, [loans, interestPayments]);
 
   const groups = useMemo(() => {
     const vivas = installments.filter(
@@ -164,7 +174,9 @@ function Collections() {
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["installments-all"] });
-    queryClient.invalidateQueries({ queryKey: ["payments-all"] });
+    queryClient.invalidateQueries({ queryKey: ["payments-recent"] });
+    queryClient.invalidateQueries({ queryKey: ["payments-for-loans"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
     queryClient.invalidateQueries({ queryKey: ["loans"] });
     queryClient.invalidateQueries({ queryKey: ["profile"] });
   }
