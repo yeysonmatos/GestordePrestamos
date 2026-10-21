@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 
 // Google AdSense — SOLO en esta pagina publica (la app privada queda sin anuncios).
 const ADSENSE_CLIENT = "ca-pub-3577361424276054";
-// Pega aqui el ID del bloque (data-ad-slot) que crees en AdSense -> Anuncios -> Por unidad.
-// Mientras este vacio, el hueco del banner no se muestra (la verificacion va por ads.txt).
-const ADSENSE_SLOT = "";
+// ID del bloque de anuncio creado en AdSense (Anuncios -> Por unidad -> HTML).
+const ADSENSE_SLOT = "5425052148";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -149,6 +148,56 @@ function Landing() {
           </div>
         )}
       </section>
+
+      <CookieNotice />
+    </div>
+  );
+}
+
+/**
+ * Aviso de cookies (obligatorio con AdSense): se muestra la primera vez y se recuerda
+ * en el navegador. Solo aparece en la portada publica, que es donde se cargan los anuncios.
+ */
+function CookieNotice() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("gp-cookies-ok")) setVisible(true);
+    } catch {
+      setVisible(true);
+    }
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 p-3 backdrop-blur">
+      <div className="mx-auto flex max-w-3xl flex-col items-start gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <p className="min-w-0">
+          Usamos cookies propias y de terceros (Google AdSense) para mostrar anuncios. Más
+          información en la{" "}
+          <Link to="/privacidad" className="font-medium text-foreground underline">
+            política de privacidad
+          </Link>
+          .
+        </p>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="shrink-0"
+          onClick={() => {
+            try {
+              localStorage.setItem("gp-cookies-ok", "1");
+            } catch {
+              /* si el navegador bloquea el almacenamiento, igual ocultamos el aviso */
+            }
+            setVisible(false);
+          }}
+        >
+          Entendido
+        </Button>
+      </div>
     </div>
   );
 }

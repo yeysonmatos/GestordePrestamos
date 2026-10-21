@@ -5,7 +5,11 @@ export const Route = createFileRoute("/privacidad")({
   head: () => ({
     meta: [
       { title: "Política de Privacidad | Gestor de Prestamos" },
-      { name: "description", content: "Política de Privacidad de Gestor de Prestamos conforme a la Ley 172-13 de República Dominicana." },
+      {
+        name: "description",
+        content:
+          "Política de Privacidad de Gestor de Prestamos conforme a la Ley 172-13 de República Dominicana.",
+      },
     ],
   }),
   component: Privacidad,
@@ -30,83 +34,155 @@ function Privacidad() {
         <section>
           <h2 className="font-display text-base font-semibold">1. Responsable del tratamiento</h2>
           <p className="mt-2 text-muted-foreground">
-            El responsable del tratamiento de los datos personales es Gestor de Prestamos. Para cualquier consulta sobre esta política, puede escribir a gestordprestamo@gmail.com.
+            El responsable del tratamiento de los datos personales es Gestor de Prestamos. Para
+            cualquier consulta sobre esta política, puede escribir a gestordprestamo@gmail.com.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-base font-semibold">2. Datos que recopilamos</h2>
           <p className="mt-2 text-muted-foreground">
-            Recopilamos datos necesarios para prestar el servicio: información de la cuenta (nombre, correo, teléfono), datos de negocio (nombre comercial, teléfono, preferencia de moneda), datos de clientes (nombre, teléfono, cédula/tipo de documento, dirección opcional), datos de préstamos (montos, fechas, cuotas), pagos y documentos subidos.
+            Recopilamos datos necesarios para prestar el servicio: información de la cuenta (nombre,
+            correo, teléfono), datos de negocio (nombre comercial, teléfono, preferencia de moneda),
+            datos de clientes (nombre, teléfono, cédula/tipo de documento, dirección opcional),
+            datos de préstamos (montos, fechas, cuotas), pagos y documentos subidos.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-base font-semibold">3. Finalidad del tratamiento</h2>
           <p className="mt-2 text-muted-foreground">
-            Usamos sus datos para gestionar préstamos, cobros, reportes, facturación de suscripción, seguridad, soporte y cumplimiento de obligaciones legales. No vendemos ni alquilamos sus datos personales.
+            Usamos sus datos para gestionar préstamos, cobros, reportes, facturación de suscripción,
+            seguridad, soporte y cumplimiento de obligaciones legales. No vendemos ni alquilamos sus
+            datos personales.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-base font-semibold">4. Conservación</h2>
           <p className="mt-2 text-muted-foreground">
-            Conservaremos sus datos mientras dure la relación contractual y el tiempo necesario para cumplir obligaciones legales. Puede solicitar la eliminación de su cuenta en cualquier momento.
+            Conservaremos sus datos mientras dure la relación contractual y el tiempo necesario para
+            cumplir obligaciones legales. Puede solicitar la eliminación de su cuenta en cualquier
+            momento.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-base font-semibold">5. Consentimiento</h2>
           <p className="mt-2 text-muted-foreground">
-            Al usar la plataforma, usted consiente el tratamiento de sus datos conforme a esta política, salvo cuando la ley disponga otra cosa.
+            Al usar la plataforma, usted consiente el tratamiento de sus datos conforme a esta
+            política, salvo cuando la ley disponga otra cosa.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-base font-semibold">6. Transferencias</h2>
           <p className="mt-2 text-muted-foreground">
-            Podemos compartir datos con proveedores que prestan servicios a la plataforma (alojamiento, correo, almacenamiento de archivos) bajo cláusulas de confidencialidad. No transferimos datos a terceros con fines comerciales.
+            Podemos compartir datos con proveedores que prestan servicios a la plataforma
+            (alojamiento, correo, almacenamiento de archivos) bajo cláusulas de confidencialidad. No
+            transferimos datos a terceros con fines comerciales.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-base font-semibold">7. Seguridad</h2>
           <p className="mt-2 text-muted-foreground">
-            Aplicamos medidas razonables de seguridad (autenticación, Row Level Security, cifrado en tránsito) para proteger sus datos.
+            Aplicamos medidas razonables de seguridad (autenticación, Row Level Security, cifrado en
+            tránsito) para proteger sus datos.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-base font-semibold">8. Derechos ARCO</h2>
           <p className="mt-2 text-muted-foreground">
-            Conforme a la Ley 172-13, usted tiene derecho a Acceder, Rectificar, Cancelar u Oponerse al tratamiento de sus datos. Para ejercerlo, envíe un correo a gestordprestamo@gmail.com indicando su identificación y solicitud.
+            Conforme a la Ley 172-13, usted tiene derecho a Acceder, Rectificar, Cancelar u Oponerse
+            al tratamiento de sus datos. Para ejercerlo, envíe un correo a gestordprestamo@gmail.com
+            indicando su identificación y solicitud.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-base font-semibold">9. Datos de terceros</h2>
           <p className="mt-2 text-muted-foreground">
-            Usted es responsable de contar con el consentimiento necesario para registrar datos personales de sus clientes en la plataforma.
+            Usted es responsable de contar con el consentimiento necesario para registrar datos
+            personales de sus clientes en la plataforma.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-base font-semibold">10. Menores de edad</h2>
           <p className="mt-2 text-muted-foreground">
-            La plataforma no está dirigida a menores de edad. No recopilamos intencionalmente datos de menores.
+            La plataforma no está dirigida a menores de edad. No recopilamos intencionalmente datos
+            de menores.
           </p>
         </section>
 
         <section>
-          <h2 className="font-display text-base font-semibold">11. Cambios a esta política</h2>
+          <h2 className="font-display text-base font-semibold">
+            11. Cookies y publicidad (Google AdSense)
+          </h2>
           <p className="mt-2 text-muted-foreground">
-            Podemos actualizar esta política. Publicaremos la versión vigente en esta página. El uso continuado implica aceptación de los cambios.
+            En la <strong>página pública de inicio</strong> mostramos anuncios mediante{" "}
+            <strong>Google AdSense</strong>. Para ello, Google y sus socios pueden usar{" "}
+            <strong>cookies e identificadores</strong> (incluida la cookie de DoubleClick) para
+            mostrar anuncios basados en visitas previas a este u otros sitios. Estas cookies
+            <strong> no</strong> se usan dentro de la aplicación privada (clientes, préstamos,
+            cobros, reportes).
+          </p>
+          <p className="mt-2 text-muted-foreground">
+            Puedes desactivar la publicidad personalizada en{" "}
+            <a
+              href="https://www.google.com/settings/ads"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              Configuración de anuncios de Google
+            </a>{" "}
+            y en{" "}
+            <a
+              href="https://www.aboutads.info/choices/"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              aboutads.info
+            </a>
+            . Más información en la{" "}
+            <a
+              href="https://policies.google.com/technologies/ads"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              política de publicidad de Google
+            </a>
+            . Al continuar navegando en la portada aceptas este uso; puedes borrar las cookies desde
+            tu navegador en cualquier momento.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-base font-semibold">12. Cambios a esta política</h2>
+          <p className="mt-2 text-muted-foreground">
+            Podemos actualizar esta política. Publicaremos la versión vigente en esta página. El uso
+            continuado implica aceptación de los cambios.
           </p>
         </section>
       </article>
 
       <p className="mt-4 text-center text-xs text-muted-foreground">
-        <Link to="/" className="hover:underline">Volver al inicio</Link> · <Link to="/terminos" className="hover:underline">Términos y Condiciones</Link> · <Link to="/auth" className="hover:underline">Iniciar sesión / Registrarse</Link>
+        <Link to="/" className="hover:underline">
+          Volver al inicio
+        </Link>{" "}
+        ·{" "}
+        <Link to="/terminos" className="hover:underline">
+          Términos y Condiciones
+        </Link>{" "}
+        ·{" "}
+        <Link to="/auth" className="hover:underline">
+          Iniciar sesión / Registrarse
+        </Link>
       </p>
     </main>
   );
