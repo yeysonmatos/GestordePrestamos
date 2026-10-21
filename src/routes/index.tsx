@@ -4,6 +4,12 @@ import { ArrowRight, HandCoins, ShieldCheck, Smartphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
+// Google AdSense — SOLO en esta pagina publica (la app privada queda sin anuncios).
+const ADSENSE_CLIENT = "ca-pub-3577361424276054";
+// Pega aqui el ID del bloque (data-ad-slot) que crees en AdSense -> Anuncios -> Por unidad.
+// Mientras este vacio, el hueco del banner no se muestra (la verificacion va por ads.txt).
+const ADSENSE_SLOT = "";
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -18,6 +24,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "Control de préstamos personales para prestamistas en República Dominicana.",
       },
+      // Verificación de propiedad del sitio para Google AdSense
+      { name: "google-adsense-account", content: ADSENSE_CLIENT },
     ],
   }),
   component: Landing,
@@ -41,6 +49,28 @@ function Landing() {
       setChecked(true);
     })();
   }, [navigate]);
+
+  // AdSense: carga el script SOLO en esta página pública (la app privada queda sin anuncios).
+  useEffect(() => {
+    const id = "adsbygoogle-js";
+    if (!document.getElementById(id)) {
+      const s = document.createElement("script");
+      s.id = id;
+      s.async = true;
+      s.crossOrigin = "anonymous";
+      s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`;
+      document.head.appendChild(s);
+    }
+    // Solo se pide un bloque cuando hay un ID de bloque (data-ad-slot) configurado.
+    if (!ADSENSE_SLOT) return;
+    try {
+      const w = window as unknown as { adsbygoogle?: unknown[] };
+      w.adsbygoogle = w.adsbygoogle || [];
+      w.adsbygoogle.push({});
+    } catch {
+      /* si AdSense falla, la página sigue funcionando igual */
+    }
+  }, []);
 
   if (!checked) {
     return <div className="min-h-screen bg-background" />;
@@ -67,8 +97,8 @@ function Landing() {
           Cada peso prestado, cada cuota cobrada, en un solo lugar.
         </h1>
         <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
-          Registra clientes, arma cronogramas de cuotas, cobra con mora automática y mira al instante
-          quién te debe hoy. Todo en pesos y en español.
+          Registra clientes, arma cronogramas de cuotas, cobra con mora automática y mira al
+          instante quién te debe hoy. Todo en pesos y en español.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Button asChild size="lg" variant="accent" className="w-full text-base sm:w-auto">
@@ -103,8 +133,22 @@ function Landing() {
             </div>
           ))}
         </div>
+
+        {/* Banner de AdSense: pequeño y centrado, debajo de las 3 tarjetas.
+            Solo se renderiza cuando ADSENSE_SLOT tiene el ID del bloque creado en AdSense. */}
+        {ADSENSE_SLOT && (
+          <div className="mt-10 flex w-full justify-center">
+            <ins
+              className="adsbygoogle block w-full max-w-3xl"
+              style={{ display: "block" }}
+              data-ad-client={ADSENSE_CLIENT}
+              data-ad-slot={ADSENSE_SLOT}
+              data-ad-format="auto"
+              data-full-width-responsive="true"
+            />
+          </div>
+        )}
       </section>
     </div>
   );
 }
-

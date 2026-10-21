@@ -1,4 +1,4 @@
-const CACHE = 'gestor-prestamos-lovable-v4'
+const CACHE = 'gestor-prestamos-lovable-v5'
 const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/offline.html',
@@ -19,6 +19,13 @@ const NO_CACHE_PATTERNS = [
   /\/auth\/v1\//,
   /\/rest\/v1\//,
   /\/storage\/v1\//,
+  // Google AdSense / anuncios: NUNCA cachear (si se cachea, deja de contar impresiones).
+  /googlesyndication\.com/,
+  /googleadservices\.com/,
+  /doubleclick\.net/,
+  /googletagservices\.com/,
+  /^https?:\/\/[^/]*google\.com\/ads/,
+  /^https?:\/\/[^/]*google\.com\/pagead/,
 ]
 
 function shouldSkipCache(url) {
