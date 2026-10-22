@@ -1,6 +1,6 @@
 // Crons de plataforma (portados de la app Next.js, fase A2/retencion):
 //  - /api/cron/backup            -> respaldo diario de TODOS los usuarios + purga por retencion
-//  - /api/cron/subscription-notify -> avisa al admin de trials vencidos (1x usuario por dia)
+//  - /api/cron/subscription-notify -> RESUMEN diario al admin de suscripciones vencidas (todos los planes; 1 correo/dia)
 //  - /api/cron/reconcile         -> "revisor del sistema": integridad contable
 //                                   (reconcile_money) + revisor de integridad
 //                                   (system_checks: cronogramas, estados, mora y
@@ -66,11 +66,19 @@ async function runBackup(): Promise<Response> {
   return json({ ok: true, backups, purged, users: userIds.length, errors });
 }
 
-interface TrialRow {
+interface ExpiredSub {
   user_id: string;
-  status: string | null;
+  email: string | null;
+  business_name: string | null;
+  business_phone: string | null;
+  business_email: string | null;
+  plan_name: string;
+  plan_price: number;
+  status: string;
   ends_at: string | null;
-  plan: { name: string } | null;
+  dias: number | null;
+  loans: number;
+  clients: number;
 }
 
 /**
@@ -118,15 +126,26 @@ async function recoverEmailQueue(): Promise<{ recovered: number; flushed: number
   return { recovered, flushed };
 }
 
-async function runTrialNotify(): Promise<Response> {
+/**
+ * Resumen DIARIO de suscripciones vencidas para el admin.
+ * (Antes: un correo POR CADA vencido, solo de planes Trial, todos los días = ruido
+ * y además no avisaba cuando vencía un plan de pago.)
+ * Ahora: UN solo correo al día con la lista completa, de TODOS los planes, usando
+ * la misma regla que la app (solo cuenta la suscripción VIGENTE = la más reciente
+ * de cada cliente; RPC expired_subscriptions). Cubre además la cola de correos.
+ * ?test=1 fuerza el resumen aunque no haya vencidos.
+ */
+async function runSubscriptionNotify(request: Request): Promise<Response> {
+  const force = new URL(request.url).searchParams.get("test") === "1";
   const queue = await recoverEmailQueue();
-  const { data: subs, error } = (await admin
-    .from("subscriptions")
-    .select("user_id, status, ends_at, plan:plans(name)")) as unknown as {
-    data: TrialRow[] | null;
-    error: { message: string } | null;
-  };
-  if (error) return json({ error: `Error cargando suscripciones: ${error.message}` }, 500);
+
+  const { data, error } = await admin.rpc("expired_subscriptions");
+  if (error) return json({ error: `Error cargando vencidos: ${error.message}` }, 500);
+  const expired = (typeof data === "string" ? JSON.parse(data) : (data ?? [])) as ExpiredSub[];
+
+  if (expired.length === 0 && !force) {
+    return json({ ok: true, expired: 0, notified: false, queue });
+  }
 
   const { data: adm } = await admin
     .from("app_users")
@@ -138,65 +157,72 @@ async function runTrialNotify(): Promise<Response> {
 
   let adminEmail: string | null = null;
   try {
-    const { data } = await admin.auth.admin.getUserById(adm.id);
-    adminEmail = data?.user?.email ?? null;
+    const { data: u } = await admin.auth.admin.getUserById(adm.id);
+    adminEmail = u?.user?.email ?? null;
   } catch {
     adminEmail = null;
   }
   if (!adminEmail) return json({ ok: false, error: "Admin sin email" }, 500);
 
-  const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
-  const expired = (subs ?? []).filter(
-    (s) =>
-      s.plan?.name === "Trial" &&
-      (s.status === "expired" ||
-        s.status === "cancelled" ||
-        (s.ends_at ? new Date(s.ends_at).getTime() < now : false)),
-  );
+  const dedupeKey = `sub-expired-digest-${today}`;
+  let notified = false;
+  let skipped = false;
 
-  let notified = 0;
-  const errors: string[] = [];
+  const { data: dup } = await admin
+    .from("email_messages")
+    .select("id")
+    .eq("dedupe_key", dedupeKey)
+    .limit(1)
+    .maybeSingle();
+  if (dup && !force) {
+    skipped = true;
+  } else {
+    const items = expired
+      .slice(0, 60)
+      .map((s) => {
+        const name = s.business_name || s.email || s.user_id;
+        const contacto = [s.email, s.business_phone ? `tel ${s.business_phone}` : null]
+          .filter(Boolean)
+          .join(" · ");
+        const cuando =
+          s.dias != null ? `venció hace <strong>${s.dias} día(s)</strong>` : `estado: ${s.status}`;
+        return `<li><strong>${name}</strong>${contacto ? ` (${contacto})` : ""} — plan ${s.plan_name} (RD$ ${Number(s.plan_price).toFixed(2)}) · ${cuando} · ${s.loans} préstamo(s) activo(s) · ${s.clients} cliente(s)</li>`;
+      })
+      .join("");
 
-  for (const s of expired) {
-    try {
-      const dedupeKey = `trial-expired-${s.user_id}-${today}`;
-      const { data: dup } = await admin
-        .from("email_messages")
-        .select("id")
-        .eq("dedupe_key", dedupeKey)
-        .limit(1)
-        .maybeSingle();
-      if (dup) continue;
+    const htmlBody =
+      expired.length === 0
+        ? `<p><strong>Prueba del resumen de vencimientos</strong> (pedido a mano).</p>
+           <p>Resultado: <strong>ningún suscriptor vencido</strong>. Todo al día.</p>`
+        : `<p>Hay <strong>${expired.length}</strong> suscriptor(es) con la suscripción vigente vencida. La app ya los tiene en <strong>modo lectura</strong> (pueden ver todo, pero no crear préstamos ni registrar cobros) hasta que registres su pago.</p>
+           <ul>${items}</ul>
+           <p><strong>Qué hacer con cada uno:</strong></p>
+           <ol>
+             <li>Contáctalo para cobrar la renovación.</li>
+             <li>Al recibir el pago: <em>Admin → Usuarios → (el negocio) → <strong>Registrar pago</strong></em> — eso extiende su suscripción y lo reactiva.</li>
+             <li>Para mandarle un aviso directo al cliente: <em>Admin → Recordatorios → Enviar avisos</em>.</li>
+           </ol>
+           <p>Este resumen llega <strong>una sola vez al día</strong> mientras haya vencidos.</p>`;
 
-      const { data: business } = await admin
-        .from("settings")
-        .select("business_name")
-        .eq("user_id", s.user_id)
-        .maybeSingle();
-      const name = business?.business_name || s.user_id;
-
-      const id = await enqueueAndSend(admin, {
-        recipientType: "admin",
-        recipientEmail: adminEmail,
-        templateKey: "trial_expired",
-        subject: `Trial vencido: ${name}`,
-        htmlBody:
-          `<p>El trial del suscriptor <strong>${name}</strong> finalizó` +
-          `${s.ends_at ? ` el ${String(s.ends_at).slice(0, 10)}` : ""}.</p>` +
-          `<p>Revísalo en el panel de administración (extender, cambiar plan o dejar lectura-solo).</p>`,
-        eventType: "subscription.trial_expired",
-        entityType: "subscription",
-        entityId: String(s.user_id),
-        dedupeKey,
-      });
-      if (id) notified++;
-    } catch (err) {
-      errors.push(`usuario ${s.user_id}: ${String((err as Error)?.message || err)}`);
-    }
+    const id = await enqueueAndSend(admin, {
+      recipientType: "admin",
+      recipientEmail: adminEmail,
+      templateKey: "subscription_expiry_digest",
+      subject:
+        expired.length === 0
+          ? "Renovaciones pendientes: prueba (ningún vencido)"
+          : `Renovaciones pendientes: ${expired.length} suscriptor(es) vencido(s)`,
+      htmlBody,
+      eventType: "subscription.expired_digest",
+      entityType: "platform",
+      entityId: "expired-digest",
+      dedupeKey,
+    });
+    notified = Boolean(id);
   }
 
-  return json({ ok: true, notified, users: (subs ?? []).length, queue, errors });
+  return json({ ok: true, expired: expired.length, notified, skipped, queue });
 }
 
 interface ReconcileReport {
@@ -442,7 +468,7 @@ export async function handleCronRequest(request: Request): Promise<Response | nu
   if (!authorized(request)) return json({ error: "No autorizado" }, 401);
   try {
     if (path === "/api/cron/backup") return await runBackup();
-    if (path === "/api/cron/subscription-notify") return await runTrialNotify();
+    if (path === "/api/cron/subscription-notify") return await runSubscriptionNotify(request);
     return await runReconcile(request);
   } catch (err) {
     return json({ ok: false, error: String((err as Error)?.message || err) }, 500);
