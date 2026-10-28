@@ -245,7 +245,15 @@ export async function enqueueAndSend(
 ): Promise<string | null> {
   const id = await enqueueEmail(admin, input);
   if (id) {
-    attemptSend(admin, id).catch((err) => console.error("[notify/queue] attemptSend:", err));
+    // El envío se ESPERA a propósito: en Vercel la función se congela al devolver la
+    // respuesta, así que un `attemptSend` sin await muere a medias y el correo queda en
+    // `sending`/`queued` hasta que el siguiente cron lo recupera (llegaba ~24 h tarde).
+    // `attemptSend` no lanza: si falla deja la fila en `queued` para el reintento.
+    try {
+      await attemptSend(admin, id);
+    } catch (err) {
+      console.error("[notify/queue] attemptSend:", err);
+    }
   }
   return id;
 }

@@ -318,10 +318,18 @@ function describeSystemIssue(i: Record<string, unknown>): string {
  * integridad (cronogramas, estados, mora y coherencia Reportes↔Inicio) y el vigilante
  * del backup. Si encuentra algo, avisa AL ADMIN por correo (el suscriptor no se toca:
  * es control de calidad interno). Un correo por día como máximo (dedupe).
+ * Antes de revisar recupera/envía lo que quedara en la cola de correos, para que los
+ * hallazgos de "correo atascado" no sean restos de un envío interrumpido.
  * Con ?test=1 fuerza un correo de prueba aunque no haya hallazgos.
  */
 async function runReconcile(request: Request): Promise<Response> {
   const force = new URL(request.url).searchParams.get("test") === "1";
+
+  // Cola de correos: recupera los que quedaron en "enviando" y envía los pendientes.
+  // (Hasta ahora solo la recuperaba el cron de suscripciones, así que el revisor podía
+  // denunciar como atascado un correo que se estaba enviando en ese momento.)
+  const queue = await recoverEmailQueue();
+
 
   const { data, error } = await admin.rpc("reconcile_money", { p_user_id: null });
   if (error) return json({ ok: false, error: `Error en la revisión: ${error.message}` }, 500);
@@ -448,6 +456,7 @@ async function runReconcile(request: Request): Promise<Response> {
     missing_backups: missingBackups.length,
     notified,
     skipped,
+    queue,
     report,
     checks,
     backups,
