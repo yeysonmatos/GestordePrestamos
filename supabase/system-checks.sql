@@ -20,6 +20,8 @@
 --   C2 cuota_sin_marcar       Cuota cobrada por completo pero sin marcar "pagada".
 --   C3 pagado_con_pendientes  Préstamo "pagado" con cuotas pendientes.
 --   C4 activo_todo_cobrado    Préstamo en curso con TODAS sus cuotas cobradas (atascado).
+--   C5 liquidado_sigue_activo Préstamo con el pago de liquidación cobrado que sigue
+--                             "en curso" (se ve como deuda y sale en Cobros → Vencidos).
 --   D1 pago_huerfano          Pago sin préstamo (quedó de un borrado antiguo).
 --   D2 pago_cuota_ajena       Pago cuya cuota pertenece a OTRO préstamo.
 --   D3 pago_duplicado         Dos pagos idénticos el mismo día en la misma cuota.
@@ -182,6 +184,21 @@ BEGIN
           AND (i.amount - COALESCE(i.paid_amount, 0)) > 0.009
       )
   ),
+  c13 AS (
+    -- Liquidado pero sin cerrar: el pago de liquidación está cobrado y aun así el
+    -- préstamo sigue "en curso". Así quedaban los que se liquidaron desde la app
+    -- vieja, que escribía el pago pero NO el status='paid' del préstamo: aparecían
+    -- con 0 por cobrar, en "En curso" y en Cobros → Vencidos.
+    SELECT a.loan_id AS v
+    FROM activos a
+    WHERE a.status IN ('active', 'late', 'late_1_30', 'late_31_60', 'late_61_90')
+      AND EXISTS (
+        SELECT 1 FROM public.payments p
+        WHERE p.loan_id = a.id
+          AND p.status = 'paid'
+          AND p.type = 'liquidation'
+      )
+  ),
   -- ===== Pagos =====
   pagos AS (
     SELECT p.id, p.loan_id, p.installment_id, p.amount, p.status, p.created_at
@@ -340,6 +357,9 @@ BEGIN
     UNION ALL SELECT 'activo_todo_cobrado', 'media',
            'Préstamo en curso con todas sus cuotas cobradas (quedó atascado)',
            (SELECT count(*) FROM c11), (SELECT jsonb_agg(v) FROM (SELECT v FROM c11 LIMIT 3) q)
+    UNION ALL SELECT 'liquidado_sigue_activo', 'alta',
+           'Préstamo liquidado que sigue "en curso" (no se cerró al cobrar)',
+           (SELECT count(*) FROM c13), (SELECT jsonb_agg(v) FROM (SELECT v FROM c13 LIMIT 3) q)
     UNION ALL SELECT 'pago_huerfano', 'media',
            'Pago sin préstamo (quedó de un borrado antiguo)',
            (SELECT count(*) FROM d1), (SELECT jsonb_agg(v) FROM (SELECT v FROM d1 LIMIT 3) q)
@@ -400,7 +420,7 @@ BEGIN
     'ran', true,
     'today', v_today,
     'scope', COALESCE(v_scope::text, 'toda la base'),
-    'checks_run', 24,
+    'checks_run', 25,
     'issue_count', COALESCE((SELECT SUM((c ->> 'count')::int) FROM jsonb_array_elements(v_checks) c), 0),
     'issues', v_checks
   );
