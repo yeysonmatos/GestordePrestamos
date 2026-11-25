@@ -23,7 +23,10 @@ export const Route = createFileRoute("/_authenticated/admin")({
           "Panel del administrador: suscriptores registrados, pagos de suscripción, planes y auditoría de la plataforma.",
       },
       { property: "og:title", content: "Administración SaaS | Gestor de Prestamos" },
-        { property: "og:description", content: "Suscriptores, pagos, planes e ingresos de la plataforma." },
+      {
+        property: "og:description",
+        content: "Suscriptores, pagos, planes e ingresos de la plataforma.",
+      },
     ],
   }),
   component: () => (
@@ -32,4 +35,3 @@ export const Route = createFileRoute("/_authenticated/admin")({
     </AdminShell>
   ),
 });
-

@@ -11,7 +11,12 @@ import { ArrowLeft, Check, FileText, Send, X } from "lucide-react";
 import { supportGet, supportReply, supportUpdate } from "@/lib/admin-fns";
 import { ThreadMessage } from "@/components/support/thread-message";
 
-interface Attachment { path: string; name: string; mime_type?: string; size?: number }
+interface Attachment {
+  path: string;
+  name: string;
+  mime_type?: string;
+  size?: number;
+}
 interface Ticket {
   id: string;
   subject: string;
@@ -23,9 +28,22 @@ interface Ticket {
   user_id: string;
   author_name: string | null;
 }
-interface Message { id: string; body: string; is_staff: boolean; attachments: Attachment[]; created_at: string }
+interface Message {
+  id: string;
+  body: string;
+  is_staff: boolean;
+  attachments: Attachment[];
+  created_at: string;
+}
 
-const STATUS_BADGE: Record<Ticket["status"], { variant: "default" | "secondary" | "destructive" | "outline"; className?: string; label: string }> = {
+const STATUS_BADGE: Record<
+  Ticket["status"],
+  {
+    variant: "default" | "secondary" | "destructive" | "outline";
+    className?: string;
+    label: string;
+  }
+> = {
   open: { variant: "secondary", label: "Abierto" },
   replied: { variant: "outline", className: "border-success/50 text-success", label: "Respondido" },
   closed: { variant: "outline", label: "Cerrado" },
@@ -82,7 +100,8 @@ function SupportDetail() {
       for (const file of files) {
         const path = `support/${id}/${Date.now()}-${file.name}`;
         const { error: upErr } = await supabase.storage.from("documents").upload(path, file);
-        if (!upErr) attachments.push({ path, name: file.name, mime_type: file.type, size: file.size });
+        if (!upErr)
+          attachments.push({ path, name: file.name, mime_type: file.type, size: file.size });
       }
       await supportReply({ data: { id, body: text.trim(), attachments } });
       setText("");
@@ -109,13 +128,18 @@ function SupportDetail() {
     setSaving(false);
   }
 
-  if (loading) return <div className="py-12 text-center text-sm text-muted-foreground">Cargando...</div>;
+  if (loading)
+    return <div className="py-12 text-center text-sm text-muted-foreground">Cargando...</div>;
 
   if (!ticket) {
     return (
       <Card className="p-6 text-center">
         <p className="text-sm text-muted-foreground">Ticket no encontrado.</p>
-        <Button variant="secondary" className="mt-3" onClick={() => navigate({ to: "/admin/support" })}>
+        <Button
+          variant="secondary"
+          className="mt-3"
+          onClick={() => navigate({ to: "/admin/support" })}
+        >
           <ArrowLeft className="mr-1 size-4" /> Volver
         </Button>
       </Card>
@@ -142,13 +166,25 @@ function SupportDetail() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={st.variant} className={st.className}>{st.label}</Badge>
+            <Badge variant={st.variant} className={st.className}>
+              {st.label}
+            </Badge>
             {ticket.status === "closed" ? (
-              <Button size="sm" variant="secondary" disabled={saving} onClick={() => setStatus("open")}>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => setStatus("open")}
+              >
                 <Check className="mr-1 size-4" /> Reabrir
               </Button>
             ) : (
-              <Button size="sm" variant="secondary" disabled={saving} onClick={() => setStatus("closed")}>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => setStatus("closed")}
+              >
                 <Check className="mr-1 size-4" /> Cerrar
               </Button>
             )}
@@ -156,8 +192,16 @@ function SupportDetail() {
         </div>
       </Card>
 
-      {message && <Alert><span>{message}</span></Alert>}
-      {error && <Alert variant="destructive"><span>{error}</span></Alert>}
+      {message && (
+        <Alert>
+          <span>{message}</span>
+        </Alert>
+      )}
+      {error && (
+        <Alert variant="destructive">
+          <span>{error}</span>
+        </Alert>
+      )}
 
       <Card className="p-4">
         <div className="space-y-3">
@@ -185,13 +229,25 @@ function SupportDetail() {
         <Card className="p-4">
           <form onSubmit={handleSend} className="space-y-3">
             <label className="text-sm font-medium">Responder</label>
-            <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Responder al cliente..." rows={4} />
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Responder al cliente..."
+              rows={4}
+            />
             {files.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {files.map((f, i) => (
-                  <div key={i} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">
+                  <div
+                    key={i}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground"
+                  >
                     <FileText className="size-4" /> {f.name}
-                    <button type="button" onClick={() => setFiles((fs) => fs.filter((_, x) => x !== i))} className="text-muted-foreground hover:text-destructive">
+                    <button
+                      type="button"
+                      onClick={() => setFiles((fs) => fs.filter((_, x) => x !== i))}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
                       <X className="size-3.5" />
                     </button>
                   </div>

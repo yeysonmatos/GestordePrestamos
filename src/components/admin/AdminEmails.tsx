@@ -1,139 +1,151 @@
-﻿import { useState, useEffect, useCallback } from 'react'
-import { Card } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { formatDate } from '@/lib/finance'
-import { Mail, Play, RotateCw, Search, Trash2 } from 'lucide-react'
-import { emailsList, emailsRetry, emailsDelete } from '@/lib/admin-fns'
-import { flushEmailQueue } from '@/lib/admin'
+﻿import { useState, useEffect, useCallback } from "react";
+import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatDate } from "@/lib/finance";
+import { Mail, Play, RotateCw, Search, Trash2 } from "lucide-react";
+import { emailsList, emailsRetry, emailsDelete } from "@/lib/admin-fns";
+import { flushEmailQueue } from "@/lib/admin";
 
 interface EmailMessage {
-  id: string
-  recipient_type: 'admin' | 'prestamista'
-  recipient_name?: string | null
-  recipient_email: string
-  template_key: string
-  subject: string
-  html_body: string
-  status: 'queued' | 'sending' | 'sent' | 'failed'
-  attempts: number
-  max_attempts: number
-  last_error?: string | null
-  event_type: string
-  entity_type?: string | null
-  entity_id?: string | null
-  created_at: string
-  sent_at?: string | null
+  id: string;
+  recipient_type: "admin" | "prestamista";
+  recipient_name?: string | null;
+  recipient_email: string;
+  template_key: string;
+  subject: string;
+  html_body: string;
+  status: "queued" | "sending" | "sent" | "failed";
+  attempts: number;
+  max_attempts: number;
+  last_error?: string | null;
+  event_type: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  created_at: string;
+  sent_at?: string | null;
 }
 
-const STATUS_UI: Record<EmailMessage['status'], { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
-  queued: { variant: 'secondary', label: 'En cola' },
-  sending: { variant: 'secondary', label: 'Enviando' },
-  sent: { variant: 'default', label: 'Enviado' },
-  failed: { variant: 'destructive', label: 'Fallido' },
-}
+const STATUS_UI: Record<
+  EmailMessage["status"],
+  { variant: "default" | "secondary" | "destructive" | "outline"; label: string }
+> = {
+  queued: { variant: "secondary", label: "En cola" },
+  sending: { variant: "secondary", label: "Enviando" },
+  sent: { variant: "default", label: "Enviado" },
+  failed: { variant: "destructive", label: "Fallido" },
+};
 
 export default function AdminEmails() {
-  const [messages, setMessages] = useState<EmailMessage[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
-  const [status, setStatus] = useState('')
-  const [q, setQ] = useState('')
-  const [preview, setPreview] = useState<EmailMessage | null>(null)
-  const [retrying, setRetrying] = useState(false)
-  const [flushing, setFlushing] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [messages, setMessages] = useState<EmailMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState("");
+  const [q, setQ] = useState("");
+  const [preview, setPreview] = useState<EmailMessage | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [flushing, setFlushing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const d = (await emailsList({ data: { status, q } })) as { messages?: EmailMessage[]; error?: string }
-      setMessages(d.messages || [])
+      const d = (await emailsList({ data: { status, q } })) as {
+        messages?: EmailMessage[];
+        error?: string;
+      };
+      setMessages(d.messages || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar')
+      setError(err instanceof Error ? err.message : "Error al cargar");
     }
-    setLoading(false)
-  }, [status, q])
+    setLoading(false);
+  }, [status, q]);
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load();
+  }, [load]);
 
   function flashMsg(m: string) {
-    setMessage(m)
-    setTimeout(() => setMessage(''), 4000)
+    setMessage(m);
+    setTimeout(() => setMessage(""), 4000);
   }
 
   async function handleRetry() {
-    setRetrying(true)
-    setError('')
+    setRetrying(true);
+    setError("");
     try {
-      const d = (await emailsRetry({ data: {} })) as { requeued?: number; error?: string }
-      flashMsg(`${d.requeued} correos fallidos reenviados a la cola`)
-      load()
+      const d = (await emailsRetry({ data: {} })) as { requeued?: number; error?: string };
+      flashMsg(`${d.requeued} correos fallidos reenviados a la cola`);
+      load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error')
+      setError(err instanceof Error ? err.message : "Error");
     }
-    setRetrying(false)
+    setRetrying(false);
   }
 
   async function handleFlush() {
-    setFlushing(true)
-    setError('')
+    setFlushing(true);
+    setError("");
     try {
-      const r = await flushEmailQueue()
-      if (r.done === 0) flashMsg('No hay correos pendientes en la cola')
-      else flashMsg(`Cola procesada: ${r.sent} enviados, ${r.failed} fallidos (de ${r.done})`)
-      load()
+      const r = await flushEmailQueue();
+      if (r.done === 0) flashMsg("No hay correos pendientes en la cola");
+      else flashMsg(`Cola procesada: ${r.sent} enviados, ${r.failed} fallidos (de ${r.done})`);
+      load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error')
+      setError(err instanceof Error ? err.message : "Error");
     }
-    setFlushing(false)
+    setFlushing(false);
   }
 
   async function handleDeleteByIds(ids: string[]) {
-    if (ids.length === 0) return
-    if (!confirm(ids.length === 1 ? '¿Eliminar este correo?' : `¿Eliminar ${ids.length} correos?`)) return
-    setDeleting(true)
-    setError('')
+    if (ids.length === 0) return;
+    if (!confirm(ids.length === 1 ? "¿Eliminar este correo?" : `¿Eliminar ${ids.length} correos?`))
+      return;
+    setDeleting(true);
+    setError("");
     try {
-      const d = (await emailsDelete({ data: { ids } })) as { deleted?: number; error?: string }
-      flashMsg(`${d.deleted} correo(s) eliminado(s)`)
-      setPreview(null)
-      load()
+      const d = (await emailsDelete({ data: { ids } })) as { deleted?: number; error?: string };
+      flashMsg(`${d.deleted} correo(s) eliminado(s)`);
+      setPreview(null);
+      load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al eliminar')
+      setError(err instanceof Error ? err.message : "Error al eliminar");
     }
-    setDeleting(false)
+    setDeleting(false);
   }
 
   async function handleDeleteByStatus(status: string, label: string) {
-    if (!confirm(`¿Eliminar todos los correos en estado "${label}"?`)) return
-    setDeleting(true)
-    setError('')
+    if (!confirm(`¿Eliminar todos los correos en estado "${label}"?`)) return;
+    setDeleting(true);
+    setError("");
     try {
-      const d = (await emailsDelete({ data: { status } })) as { deleted?: number; error?: string }
-      flashMsg(`${d.deleted} correo(s) eliminado(s)`)
-      load()
+      const d = (await emailsDelete({ data: { status } })) as { deleted?: number; error?: string };
+      flashMsg(`${d.deleted} correo(s) eliminado(s)`);
+      load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al eliminar')
+      setError(err instanceof Error ? err.message : "Error al eliminar");
     }
-    setDeleting(false)
+    setDeleting(false);
   }
 
-  const queuedCount = messages.filter(m => m.status === 'queued').length
-  const failedCount = messages.filter(m => m.status === 'failed').length
+  const queuedCount = messages.filter((m) => m.status === "queued").length;
+  const failedCount = messages.filter((m) => m.status === "failed").length;
 
   return (
     <div className="space-y-4">
-      {message && <Alert><AlertDescription>{message}</AlertDescription></Alert>}
-      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+      {message && (
+        <Alert>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -147,23 +159,37 @@ export default function AdminEmails() {
             />
           </div>
           <div className="inline-flex rounded-lg border border-border overflow-hidden">
-            {['', 'queued', 'sent', 'failed'].map(s => (
+            {["", "queued", "sent", "failed"].map((s) => (
               <button
-                key={s || 'all'}
+                key={s || "all"}
                 onClick={() => setStatus(s)}
-                className={`px-3 py-2 text-xs font-medium min-h-11 ${status === s ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground bg-card'}`}
+                className={`px-3 py-2 text-xs font-medium min-h-11 ${status === s ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground bg-card"}`}
               >
-                {s === '' ? 'Todos' : s === 'queued' ? 'En cola' : s === 'sent' ? 'Enviados' : 'Fallidos'}
+                {s === ""
+                  ? "Todos"
+                  : s === "queued"
+                    ? "En cola"
+                    : s === "sent"
+                      ? "Enviados"
+                      : "Fallidos"}
               </button>
             ))}
           </div>
           <Button variant="accent" onClick={handleFlush} disabled={flushing}>
             <Play className="h-4 w-4 mr-1" /> Procesar cola
           </Button>
-          <Button variant="secondary" onClick={handleRetry} disabled={retrying || failedCount === 0}>
+          <Button
+            variant="secondary"
+            onClick={handleRetry}
+            disabled={retrying || failedCount === 0}
+          >
             <RotateCw className="h-4 w-4 mr-1" /> Reenviar fallidos ({failedCount})
           </Button>
-          <Button variant="destructive" onClick={() => handleDeleteByStatus('queued', 'en cola')} disabled={deleting || queuedCount === 0}>
+          <Button
+            variant="destructive"
+            onClick={() => handleDeleteByStatus("queued", "en cola")}
+            disabled={deleting || queuedCount === 0}
+          >
             <Trash2 className="h-4 w-4 mr-1" /> Vaciar en cola ({queuedCount})
           </Button>
         </div>
@@ -178,8 +204,8 @@ export default function AdminEmails() {
         </Card>
       ) : (
         <Card className="divide-y divide-border">
-          {messages.map(m => {
-            const st = STATUS_UI[m.status]
+          {messages.map((m) => {
+            const st = STATUS_UI[m.status];
             return (
               <button
                 key={m.id}
@@ -194,42 +220,62 @@ export default function AdminEmails() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {m.attempts > 0 && m.status !== 'sent' && (
-                      <span className="text-[10px] text-muted-foreground">Intento {m.attempts}/{m.max_attempts}</span>
+                    {m.attempts > 0 && m.status !== "sent" && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Intento {m.attempts}/{m.max_attempts}
+                      </span>
                     )}
                     <Badge variant={st.variant}>{st.label}</Badge>
                   </div>
                 </div>
-                {m.status === 'failed' && m.last_error && (
+                {m.status === "failed" && m.last_error && (
                   <p className="text-xs text-destructive mt-1 truncate">{m.last_error}</p>
                 )}
               </button>
-            )
+            );
           })}
         </Card>
       )}
 
-      <Dialog open={!!preview} onOpenChange={(o: boolean) => { if (!o) setPreview(null) }}>
+      <Dialog
+        open={!!preview}
+        onOpenChange={(o: boolean) => {
+          if (!o) setPreview(null);
+        }}
+      >
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{preview?.subject || 'Correo'}</DialogTitle>
+            <DialogTitle>{preview?.subject || "Correo"}</DialogTitle>
           </DialogHeader>
           {preview && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant={STATUS_UI[preview.status].variant}>{STATUS_UI[preview.status].label}</Badge>
+                <Badge variant={STATUS_UI[preview.status].variant}>
+                  {STATUS_UI[preview.status].label}
+                </Badge>
                 <span className="text-xs text-muted-foreground">
-                  Para {preview.recipient_name || preview.recipient_email} · {formatDate(preview.created_at)}
+                  Para {preview.recipient_name || preview.recipient_email} ·{" "}
+                  {formatDate(preview.created_at)}
                 </span>
               </div>
               <div className="rounded-lg border border-border overflow-hidden">
-                <iframe title="preview" sandbox="" srcDoc={preview.html_body} className="w-full h-[420px] bg-white" />
+                <iframe
+                  title="preview"
+                  sandbox=""
+                  srcDoc={preview.html_body}
+                  className="w-full h-[420px] bg-white"
+                />
               </div>
               <p className="text-xs text-muted-foreground">
                 Evento: {preview.event_type} · Plantilla: {preview.template_key}
               </p>
               <div className="pt-2 border-t border-border flex justify-end">
-                <Button variant="destructive" size="sm" onClick={() => handleDeleteByIds([preview.id])} disabled={deleting}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDeleteByIds([preview.id])}
+                  disabled={deleting}
+                >
                   <Trash2 className="h-4 w-4 mr-1" /> Eliminar correo
                 </Button>
               </div>
@@ -238,6 +284,5 @@ export default function AdminEmails() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
-

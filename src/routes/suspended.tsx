@@ -66,8 +66,8 @@ function Suspended() {
         </div>
         <h1 className="font-display text-xl font-bold">Cuenta suspendida</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Tu acceso fue suspendido por el administrador de la plataforma. Los datos de tus préstamos siguen
-          guardados y no se perderán.
+          Tu acceso fue suspendido por el administrador de la plataforma. Los datos de tus préstamos
+          siguen guardados y no se perderán.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
           Para reactivarla, contacta al administrador de <strong>Gestor de Prestamos</strong>.
@@ -79,5 +79,3 @@ function Suspended() {
     </div>
   );
 }
-
-

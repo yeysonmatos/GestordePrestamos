@@ -45,9 +45,7 @@ function ClientsPage() {
       byClient.set(l.client_id, cur);
     }
     return clients
-      .filter((c) =>
-        filter === "Todos" ? true : filter === "Activos" ? c.active : !c.active,
-      )
+      .filter((c) => (filter === "Todos" ? true : filter === "Activos" ? c.active : !c.active))
       .filter((c) => {
         const term = q.trim().toLowerCase();
         if (!term) return true;
@@ -140,7 +138,9 @@ function ClientsPage() {
                   <p className="truncate font-display text-base font-semibold">{c.full_name}</p>
                   <p className="text-xs text-muted-foreground">{c.phone || "Sin teléfono"}</p>
                 </div>
-                <Chip tone={c.active ? "success" : "neutral"}>{c.active ? "Activo" : "Inactivo"}</Chip>
+                <Chip tone={c.active ? "success" : "neutral"}>
+                  {c.active ? "Activo" : "Inactivo"}
+                </Chip>
               </div>
               <div className="mt-4 flex items-end justify-between">
                 <div>

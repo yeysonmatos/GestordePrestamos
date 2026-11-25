@@ -28,7 +28,13 @@ const chipStyles: Record<InstallmentStatus, string> = {
   pendiente: "bg-muted text-muted-foreground border-border",
 };
 
-export function StatusChip({ status, className }: { status: InstallmentStatus; className?: string }) {
+export function StatusChip({
+  status,
+  className,
+}: {
+  status: InstallmentStatus;
+  className?: string;
+}) {
   return (
     <span
       className={cn(

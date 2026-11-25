@@ -20,7 +20,9 @@ function Onboarding() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: profile } = useProfile();
-  const [business, setBusiness] = useState(profile?.business_name === "Mi Negocio" ? "" : profile?.business_name ?? "");
+  const [business, setBusiness] = useState(
+    profile?.business_name === "Mi Negocio" ? "" : (profile?.business_name ?? ""),
+  );
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -54,7 +56,11 @@ function Onboarding() {
     <div className="flex min-h-[70vh] items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm space-y-6">
         <div className="space-y-1 text-center">
-          <img src="/gp-icon.png" alt="Gestor de Prestamos" className="mx-auto mb-3 size-14 rounded-xl object-cover" />
+          <img
+            src="/gp-icon.png"
+            alt="Gestor de Prestamos"
+            className="mx-auto mb-3 size-14 rounded-xl object-cover"
+          />
           <h1 className="font-display text-2xl font-bold">Bienvenido</h1>
           <p className="text-sm text-muted-foreground">Configuremos tu negocio</p>
         </div>
@@ -90,7 +96,12 @@ function Onboarding() {
             />
           </div>
 
-          <Button type="submit" disabled={saving} variant="accent" className="h-11 w-full text-base">
+          <Button
+            type="submit"
+            disabled={saving}
+            variant="accent"
+            className="h-11 w-full text-base"
+          >
             {saving ? "Guardando…" : "Continuar"} <ArrowRight className="ml-1 size-4" />
           </Button>
         </form>

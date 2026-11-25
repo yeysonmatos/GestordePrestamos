@@ -30,7 +30,9 @@ export function ThreadMessage({
         </p>
         <div
           className={`inline-block whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-left text-sm ${
-            staff ? "rounded-tl-sm bg-secondary text-secondary-foreground" : "rounded-tr-sm bg-primary text-primary-foreground"
+            staff
+              ? "rounded-tl-sm bg-secondary text-secondary-foreground"
+              : "rounded-tr-sm bg-primary text-primary-foreground"
           }`}
         >
           {body}

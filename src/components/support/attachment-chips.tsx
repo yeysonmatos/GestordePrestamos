@@ -21,7 +21,11 @@ const PDF_RE = /\.pdf$/i;
  * imágenes y PDF se previsualizan en un diálogo; además permite descargar.
  */
 export function AttachmentChips({ items }: { items?: Attachment[] | null | undefined }) {
-  const [preview, setPreview] = useState<{ url: string; name: string; kind: "img" | "pdf" | "other" } | null>(null);
+  const [preview, setPreview] = useState<{
+    url: string;
+    name: string;
+    kind: "img" | "pdf" | "other";
+  } | null>(null);
   const [loadingPath, setLoadingPath] = useState<string | null>(null);
 
   async function open(a: Attachment) {
@@ -69,17 +73,32 @@ export function AttachmentChips({ items }: { items?: Attachment[] | null | undef
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="truncate text-sm">{preview?.name}</DialogTitle>
-            <DialogDescription className="sr-only">Vista previa del archivo adjunto</DialogDescription>
+            <DialogDescription className="sr-only">
+              Vista previa del archivo adjunto
+            </DialogDescription>
           </DialogHeader>
           {preview?.kind === "img" && (
-            <img src={preview.url} alt={preview.name} className="max-h-[60vh] w-full rounded-lg object-contain" />
+            <img
+              src={preview.url}
+              alt={preview.name}
+              className="max-h-[60vh] w-full rounded-lg object-contain"
+            />
           )}
           {preview?.kind === "pdf" && (
-            <iframe src={preview.url} title={preview.name} className="h-[60vh] w-full rounded-lg border border-border" />
+            <iframe
+              src={preview.url}
+              title={preview.name}
+              className="h-[60vh] w-full rounded-lg border border-border"
+            />
           )}
           {preview && (
             <div className="flex justify-end gap-2">
-              <a href={preview.url} target="_blank" rel="noopener noreferrer" className="inline-flex">
+              <a
+                href={preview.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex"
+              >
                 <Button variant="secondary" size="sm">
                   Abrir en pestaña nueva
                 </Button>

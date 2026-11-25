@@ -4,7 +4,13 @@ import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/finance";
 import { ArrowLeft, Send, X, Search, MessageCircle } from "lucide-react";
@@ -26,7 +32,11 @@ interface Ticket {
 
 const STATUS_BADGE: Record<
   Ticket["status"],
-  { variant: "default" | "secondary" | "destructive" | "outline"; className?: string; label: string }
+  {
+    variant: "default" | "secondary" | "destructive" | "outline";
+    className?: string;
+    label: string;
+  }
 > = {
   open: { variant: "secondary", label: "Abierto" },
   replied: { variant: "outline", className: "border-success/50 text-success", label: "Respondido" },
@@ -86,7 +96,10 @@ function AdminSupport() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Soporte" subtitle="Tickets recibidos de los suscriptores de la plataforma" />
+      <PageHeader
+        title="Soporte"
+        subtitle="Tickets recibidos de los suscriptores de la plataforma"
+      />
       {error && <Alert variant="destructive">{error}</Alert>}
 
       <div className="flex flex-wrap items-center gap-1">
@@ -164,7 +177,9 @@ function AdminSupport() {
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <Badge variant={st.variant} className={st.className}>{st.label}</Badge>
+                      <Badge variant={st.variant} className={st.className}>
+                        {st.label}
+                      </Badge>
                       <Badge variant={pr.variant}>{pr.label}</Badge>
                     </div>
                   </div>
@@ -177,8 +192,3 @@ function AdminSupport() {
     </div>
   );
 }
-
-
-
-
-

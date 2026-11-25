@@ -7,14 +7,21 @@ export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
       { title: "Planes | Gestor de Prestamos" },
-      { name: "description", content: "Elige el plan ideal para tu negocio de préstamos en República Dominicana." },
+      {
+        name: "description",
+        content: "Elige el plan ideal para tu negocio de préstamos en República Dominicana.",
+      },
     ],
   }),
   component: Pricing,
 });
 
 const FEATURES: Record<string, string[]> = {
-  Trial: ["14 días gratis para probarlo", "Préstamos, cobros y clientes ilimitados (con límite razonable)", "Reportes y calendario"],
+  Trial: [
+    "14 días gratis para probarlo",
+    "Préstamos, cobros y clientes ilimitados (con límite razonable)",
+    "Reportes y calendario",
+  ],
   Básico: ["Negocio activo sin límites prácticos", "Cobros, mora y recibos", "Soporte por correo"],
   Pro: ["Todo lo del Básico", "Más capacidad para tu negocio", "Soporte prioritario"],
 };
@@ -41,28 +48,42 @@ function Pricing() {
           Planes que se ajustan a tu negocio
         </h1>
         <p className="mt-3 text-base text-muted-foreground sm:text-lg">
-          Precios en pesos dominicanos. <strong>Trial 14 días gratis</strong>. Cancela cuando quieras.
+          Precios en pesos dominicanos. <strong>Trial 14 días gratis</strong>. Cancela cuando
+          quieras.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
           Al registrarte aceptas nuestros{" "}
-          <Link to="/terminos" className="text-primary hover:underline">Términos y Condiciones</Link> y nuestra{" "}
-          <Link to="/privacidad" className="text-primary hover:underline">Política de Privacidad</Link>.
+          <Link to="/terminos" className="text-primary hover:underline">
+            Términos y Condiciones
+          </Link>{" "}
+          y nuestra{" "}
+          <Link to="/privacidad" className="text-primary hover:underline">
+            Política de Privacidad
+          </Link>
+          .
         </p>
       </header>
 
-      {isLoading && <p className="mt-8 text-center text-sm text-muted-foreground">Cargando planes...</p>}
+      {isLoading && (
+        <p className="mt-8 text-center text-sm text-muted-foreground">Cargando planes...</p>
+      )}
 
       {!isLoading && !items.length && (
         <div className="surface mx-auto mt-8 max-w-md p-8 text-center">
           <CreditCard className="mx-auto size-8 text-muted-foreground" />
-          <p className="mt-2 text-sm text-muted-foreground">No hay planes activos en este momento. Intenta más tarde.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            No hay planes activos en este momento. Intenta más tarde.
+          </p>
         </div>
       )}
 
       {!!items.length && (
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {items.map((p) => (
-            <article key={p.id} className={`surface flex flex-col p-6 ${p.name === "Básico" ? "border-primary/40 shadow-lg" : ""}`}>
+            <article
+              key={p.id}
+              className={`surface flex flex-col p-6 ${p.name === "Básico" ? "border-primary/40 shadow-lg" : ""}`}
+            >
               <header>
                 <p className="font-display text-lg font-semibold">{p.name}</p>
                 <p className="mt-2">
@@ -70,7 +91,9 @@ function Pricing() {
                     <span className="font-display text-3xl font-bold">Gratis</span>
                   ) : (
                     <>
-                      <span className="font-display text-3xl font-bold">RD$ {p.price.toLocaleString("es-DO")}</span>
+                      <span className="font-display text-3xl font-bold">
+                        RD$ {p.price.toLocaleString("es-DO")}
+                      </span>
                       <span className="text-sm text-muted-foreground">/{p.cycle}</span>
                     </>
                   )}
@@ -84,7 +107,11 @@ function Pricing() {
                   </li>
                 ))}
               </ul>
-              <Button asChild variant={p.name === "Básico" ? "accent" : "secondary"} className="mt-5 h-11 w-full">
+              <Button
+                asChild
+                variant={p.name === "Básico" ? "accent" : "secondary"}
+                className="mt-5 h-11 w-full"
+              >
                 <Link to="/auth" search={{ mode: "register" }}>
                   {p.name === "Trial" ? "Empezar gratis" : "Elegir este plan"}
                 </Link>

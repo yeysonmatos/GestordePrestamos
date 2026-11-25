@@ -28,11 +28,13 @@ export async function fetchEntitlements(): Promise<Entitlements> {
       .maybeSingle(),
   ]);
 
-  const sub = subRes.data as
-    | { status: string; ends_at: string | null; plan?: { name: string } | { name: string }[] | null }
-    | null;
+  const sub = subRes.data as {
+    status: string;
+    ends_at: string | null;
+    plan?: { name: string } | { name: string }[] | null;
+  } | null;
   const planName =
-    (Array.isArray(sub?.plan) ? sub?.plan[0]?.name ?? null : sub?.plan?.name ?? null) ?? null;
+    (Array.isArray(sub?.plan) ? (sub?.plan[0]?.name ?? null) : (sub?.plan?.name ?? null)) ?? null;
 
   let readOnly = false;
   if (sub) {

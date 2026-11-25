@@ -83,7 +83,10 @@ function AdminPlans() {
       billing_cycle: p.billing_cycle,
       description: p.description ?? "",
       max_clients: p.max_clients != null && p.max_clients > 0 ? String(p.max_clients) : "",
-      max_loans: (p as any).max_loans != null && (p as any).max_loans > 0 ? String((p as any).max_loans) : "",
+      max_loans:
+        (p as any).max_loans != null && (p as any).max_loans > 0
+          ? String((p as any).max_loans)
+          : "",
       features: toFeatures(p.features).join("\n"),
       is_active: p.is_active,
     });
@@ -201,10 +204,7 @@ function AdminPlans() {
                 {toFeatures(plan.features).length > 0 && (
                   <ul className="mb-4 space-y-1">
                     {toFeatures(plan.features).map((f, i) => (
-                      <li
-                        key={i}
-                        className="flex items-start gap-2 text-sm text-muted-foreground"
-                      >
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
                         <Check className="mt-0.5 size-4 shrink-0 text-success" /> {f}
                       </li>
                     ))}

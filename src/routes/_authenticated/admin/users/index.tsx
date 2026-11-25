@@ -61,7 +61,18 @@ function AdminUsers() {
       return;
     }
     const csv = buildCsv(
-      ["Negocio", "Dueño", "Teléfono", "Plan", "Estado", "Vence", "Clientes", "Préstamos (activos/total)", "Capital", "Cobrado"],
+      [
+        "Negocio",
+        "Dueño",
+        "Teléfono",
+        "Plan",
+        "Estado",
+        "Vence",
+        "Clientes",
+        "Préstamos (activos/total)",
+        "Capital",
+        "Cobrado",
+      ],
       negocios.map((n) => [
         n.business_name,
         n.owner_name ?? "",
@@ -92,10 +103,25 @@ function AdminUsers() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Suscriptores" value={String(kpis.negocios)} hint={`${kpis.activos} activos`} icon={Building2} />
-        <Kpi label="Ingreso mensual estimado" money={kpis.mrr} hint="Según plan asignado" icon={Wallet} />
+        <Kpi
+          label="Suscriptores"
+          value={String(kpis.negocios)}
+          hint={`${kpis.activos} activos`}
+          icon={Building2}
+        />
+        <Kpi
+          label="Ingreso mensual estimado"
+          money={kpis.mrr}
+          hint="Según plan asignado"
+          icon={Wallet}
+        />
         <Kpi label="Bloqueados" value={String(kpis.bloqueados)} hint="Sin acceso" icon={Users} />
-        <Kpi label="Deudores registrados" value={String(data?.totalClientes ?? 0)} hint="En toda la plataforma" icon={Users} />
+        <Kpi
+          label="Deudores registrados"
+          value={String(data?.totalClientes ?? 0)}
+          hint="En toda la plataforma"
+          icon={Users}
+        />
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">

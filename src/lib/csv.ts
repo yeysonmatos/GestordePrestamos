@@ -1,6 +1,9 @@
 /** Generación y descarga de CSV (BOM UTF-8 para Excel). Portado de Gestor de Prestamos. */
 
-export function buildCsv(headers: string[], rows: (string | number | null | undefined)[][]): string {
+export function buildCsv(
+  headers: string[],
+  rows: (string | number | null | undefined)[][],
+): string {
   const esc = (v: string | number | null | undefined): string => {
     const s = v == null ? "" : String(v);
     return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

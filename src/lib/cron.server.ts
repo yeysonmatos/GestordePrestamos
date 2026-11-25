@@ -330,7 +330,6 @@ async function runReconcile(request: Request): Promise<Response> {
   // denunciar como atascado un correo que se estaba enviando en ese momento.)
   const queue = await recoverEmailQueue();
 
-
   const { data, error } = await admin.rpc("reconcile_money", { p_user_id: null });
   if (error) return json({ ok: false, error: `Error en la revisión: ${error.message}` }, 500);
   const report = (typeof data === "string" ? JSON.parse(data) : data) as ReconcileReport | null;

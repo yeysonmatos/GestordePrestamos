@@ -23,7 +23,9 @@ function Account() {
         subtitle="Estado de tu suscripción y tus pagos"
         action={
           <Button asChild variant="secondary" size="sm">
-            <Link to="/settings" search={{ tab: "ajustes" }}>Ajustes</Link>
+            <Link to="/settings" search={{ tab: "ajustes" }}>
+              Ajustes
+            </Link>
           </Button>
         }
       />

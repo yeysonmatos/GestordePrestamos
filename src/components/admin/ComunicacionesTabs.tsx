@@ -1,13 +1,13 @@
-﻿'use client'
+﻿"use client";
 
-import { useState } from 'react'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import AdminEmails from './AdminEmails'
-import AdminReminders from './AdminReminders'
-import AdminSmtpConfig from './AdminSmtpConfig'
+import { useState } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import AdminEmails from "./AdminEmails";
+import AdminReminders from "./AdminReminders";
+import AdminSmtpConfig from "./AdminSmtpConfig";
 
 export default function ComunicacionesTabs() {
-  const [tab, setTab] = useState('emails')
+  const [tab, setTab] = useState("emails");
   return (
     <Tabs value={tab} onValueChange={setTab}>
       <TabsList>
@@ -25,6 +25,5 @@ export default function ComunicacionesTabs() {
         <AdminSmtpConfig />
       </TabsContent>
     </Tabs>
-  )
+  );
 }
-

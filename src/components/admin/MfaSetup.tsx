@@ -1,133 +1,138 @@
-﻿import { useState, useCallback, useEffect } from 'react'
-import { ShieldCheck, QrCode, Copy, Trash2, KeyRound } from 'lucide-react'
-import { supabase } from '@/integrations/supabase/client'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+﻿import { useState, useCallback, useEffect } from "react";
+import { ShieldCheck, QrCode, Copy, Trash2, KeyRound } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface PendingFactor {
-  factorId: string
-  qr_code: string
-  secret: string
-  uri: string
+  factorId: string;
+  qr_code: string;
+  secret: string;
+  uri: string;
 }
 
 interface EnrolledFactor {
-  id: string
-  friendly_name?: string
-  factor_type: string
-  status: string
-  created_at?: string
+  id: string;
+  friendly_name?: string;
+  factor_type: string;
+  status: string;
+  created_at?: string;
 }
 
 export default function MfaSetup() {
-  const [enrolled, setEnrolled] = useState<EnrolledFactor[]>([])
-  const [pending, setPending] = useState<PendingFactor | null>(null)
-  const [code, setCode] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
-  const [copiedSecret, setCopiedSecret] = useState(false)
+  const [enrolled, setEnrolled] = useState<EnrolledFactor[]>([]);
+  const [pending, setPending] = useState<PendingFactor | null>(null);
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [copiedSecret, setCopiedSecret] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const { data, error: mfaError } = await supabase.auth.mfa.listFactors()
-      if (mfaError) throw new Error(mfaError.message)
-      setEnrolled((data?.totp || []).filter(f => f.status === 'verified'))
+      const { data, error: mfaError } = await supabase.auth.mfa.listFactors();
+      if (mfaError) throw new Error(mfaError.message);
+      setEnrolled((data?.totp || []).filter((f) => f.status === "verified"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar tus factores')
+      setError(err instanceof Error ? err.message : "Error al cargar tus factores");
     }
-    setLoading(false)
-  }, [])
+    setLoading(false);
+  }, []);
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function startEnroll() {
-    setBusy(true)
-    setError('')
-    setMessage('')
+    setBusy(true);
+    setError("");
+    setMessage("");
     try {
       // Factores no verificados de intentos previos: se descartan antes de reinscribir
-      const { data: factorsData } = await supabase.auth.mfa.listFactors()
-      const stale = (factorsData?.totp || []).filter(f => f.status !== 'verified')
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const stale = (factorsData?.totp || []).filter((f) => f.status !== "verified");
       for (const f of stale) {
-        await supabase.auth.mfa.unenroll({ factorId: f.id })
+        await supabase.auth.mfa.unenroll({ factorId: f.id });
       }
       const { data, error: enrollError } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        friendlyName: 'Autenticador',
-      })
-      if (enrollError) throw new Error(enrollError.message)
-      if (!data) return
+        factorType: "totp",
+        friendlyName: "Autenticador",
+      });
+      if (enrollError) throw new Error(enrollError.message);
+      if (!data) return;
       setPending({
         factorId: data.id,
         qr_code: data.totp.qr_code,
         secret: data.totp.secret,
         uri: data.totp.uri,
-      })
-      setCode('')
+      });
+      setCode("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar la inscripción')
+      setError(err instanceof Error ? err.message : "Error al iniciar la inscripción");
     }
-    setBusy(false)
+    setBusy(false);
   }
 
   async function verifyEnroll(e: React.FormEvent) {
-    e.preventDefault()
+    e.preventDefault();
     if (!pending || code.trim().length < 6) {
-      setError('Ingresa el código de 6 dígitos de tu autenticador.')
-      return
+      setError("Ingresa el código de 6 dígitos de tu autenticador.");
+      return;
     }
-    setBusy(true)
-    setError('')
-    setMessage('')
+    setBusy(true);
+    setError("");
+    setMessage("");
     try {
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: pending.factorId,
         code: code.trim(),
-      })
-      if (verifyError) throw new Error(verifyError.message)
-      setMessage('¡Autenticador vinculado con éxito! A partir de ahora se te pedirá el código al iniciar sesión.')
-      setPending(null)
-      setCode('')
-      load()
+      });
+      if (verifyError) throw new Error(verifyError.message);
+      setMessage(
+        "¡Autenticador vinculado con éxito! A partir de ahora se te pedirá el código al iniciar sesión.",
+      );
+      setPending(null);
+      setCode("");
+      load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'El código no es válido o expiró.')
+      setError(err instanceof Error ? err.message : "El código no es válido o expiró.");
     }
-    setBusy(false)
+    setBusy(false);
   }
 
   async function unenroll(factorId: string) {
-    if (!confirm('¿Seguro que deseas desactivar la doble verificación de tu cuenta?')) return
-    setBusy(true)
-    setError('')
-    setMessage('')
+    if (!confirm("¿Seguro que deseas desactivar la doble verificación de tu cuenta?")) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
     try {
-      const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId })
-      if (unenrollError) throw new Error(unenrollError.message)
-      setMessage('Doble verificación desactivada.')
-      load()
+      const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId });
+      if (unenrollError) throw new Error(unenrollError.message);
+      setMessage("Doble verificación desactivada.");
+      load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al desactivar.')
+      setError(err instanceof Error ? err.message : "Error al desactivar.");
     }
-    setBusy(false)
+    setBusy(false);
   }
 
   async function copySecret() {
-    if (!pending) return
+    if (!pending) return;
     try {
-      await navigator.clipboard.writeText(pending.secret)
-      setCopiedSecret(true)
-      setTimeout(() => setCopiedSecret(false), 2000)
+      await navigator.clipboard.writeText(pending.secret);
+      setCopiedSecret(true);
+      setTimeout(() => setCopiedSecret(false), 2000);
     } catch {
       // Sin portapapeles: no es bloqueante
     }
   }
 
-  if (loading) return <div className="text-center py-8 text-sm text-muted-foreground">Cargando...</div>
+  if (loading)
+    return <div className="text-center py-8 text-sm text-muted-foreground">Cargando...</div>;
 
   return (
     <div className="p-6 space-y-5">
@@ -143,19 +148,32 @@ export default function MfaSetup() {
         )}
       </div>
 
-      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-      {message && <Alert><AlertDescription>{message}</AlertDescription></Alert>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {message && (
+        <Alert>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
 
       {enrolled.length > 0 ? (
         <div className="space-y-3">
-          {enrolled.map(f => (
-            <div key={f.id} className="flex items-center justify-between gap-3 p-4 rounded-xl border border-border">
+          {enrolled.map((f) => (
+            <div
+              key={f.id}
+              className="flex items-center justify-between gap-3 p-4 rounded-xl border border-border"
+            >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
                   <ShieldCheck className="h-5 w-5 text-success" />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-medium text-sm text-foreground">{f.friendly_name || 'Autenticador'}</p>
+                  <p className="font-medium text-sm text-foreground">
+                    {f.friendly_name || "Autenticador"}
+                  </p>
                   <p className="text-xs text-muted-foreground truncate">Vinculado y verificado</p>
                 </div>
               </div>
@@ -165,14 +183,16 @@ export default function MfaSetup() {
             </div>
           ))}
           <p className="text-sm text-muted-foreground">
-            Al iniciar sesión se te pedirá el código de 6 dígitos de tu app de autenticación además de tu contraseña.
+            Al iniciar sesión se te pedirá el código de 6 dígitos de tu app de autenticación además
+            de tu contraseña.
           </p>
         </div>
       ) : (
         <div>
           <p className="text-sm text-muted-foreground">
-            Protege tu cuenta con una app de autenticación (Google Authenticator, Authy, 1Password...). Al activarla,
-            el acceso requerirá tu contraseña <strong>y</strong> un código temporal.
+            Protege tu cuenta con una app de autenticación (Google Authenticator, Authy,
+            1Password...). Al activarla, el acceso requerirá tu contraseña <strong>y</strong> un
+            código temporal.
           </p>
 
           {!pending ? (
@@ -197,13 +217,15 @@ export default function MfaSetup() {
 
                 <div className="space-y-3">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">O ingresa la clave manualmente</p>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      O ingresa la clave manualmente
+                    </p>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 block rounded-lg border border-border bg-muted px-3 py-2 text-sm font-mono break-all select-all min-w-0">
                         {pending.secret}
                       </code>
                       <Button variant="secondary" size="sm" onClick={copySecret}>
-                        <Copy className="h-4 w-4 mr-1" /> {copiedSecret ? '¡Copiado!' : 'Copiar'}
+                        <Copy className="h-4 w-4 mr-1" /> {copiedSecret ? "¡Copiado!" : "Copiar"}
                       </Button>
                     </div>
                     <label className="block text-xs text-muted-foreground mt-1">
@@ -220,12 +242,19 @@ export default function MfaSetup() {
                         maxLength={6}
                         autoComplete="one-time-code"
                         value={code}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCode(e.target.value.replace(/\D/g, ''))}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setCode(e.target.value.replace(/\D/g, ""))
+                        }
                         placeholder="123456"
                       />
                     </div>
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <Button variant="ghost" size="sm" onClick={() => setPending(null)} disabled={busy}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPending(null)}
+                        disabled={busy}
+                      >
                         Cancelar
                       </Button>
                       <Button type="submit" disabled={busy}>
@@ -240,5 +269,5 @@ export default function MfaSetup() {
         </div>
       )}
     </div>
-  )
+  );
 }
