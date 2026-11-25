@@ -975,6 +975,13 @@ export type Database = {
     Functions: {
       admin_list_users: { Args: Record<PropertyKey, never>; Returns: Json }
       admin_usage_by_user: { Args: Record<PropertyKey, never>; Returns: Json }
+      apply_loan_operation: {
+        Args: {
+          p_loan_id: string
+          p_ops: Json
+        }
+        Returns: Json
+      }
       admin_usage_stats: {
         Args: {
           p_from_month: string | null
