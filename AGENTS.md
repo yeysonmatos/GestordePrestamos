@@ -751,3 +751,34 @@ Inventario completo de los puntos auditados: Dashboard (8 tarjetas vía `get_loa
 - [ ] `src/lib/notify/actions.ts` + `src/lib/notify/queue.ts`: confiabilidad, flush y reintentos.
 - [ ] `src/components/loans/PaymentReceipt.tsx`: solo muestra Capital/Interés cuando `hasMora`.
 - [ ] Crear `/terminos` y enlazar privacidad/términos desde el registro.
+## Hoy — 25 Nov 2026 · Revisión de seguridad + bloques 1, 2 y 3
+
+### Bloque 1 — Dependencias, lint y documento de cliente
+- [x] **Next.js 16.2.10 → 16.4.6** (+ `eslint-config-next`): cerraba RCE en el optimizador de imágenes, bypass de middleware y SSRF. `images.unoptimized: true` (la app no usa `next/image`).
+- [x] **nodemailer 9 → 10.4.1**; `overrides` en package.json: `nanoid 3.3.20`, `source-map-js 1.2.2`, `baseline-browser-mapping 2.11.36`. `npm audit --omit=dev` solo deja **xlsx** (sin versión corregida en npm; los fallos son al *leer* archivos y la app solo *escribe* .xlsx).
+- [x] **Lint**: dependencias de hooks (Calendar, Collections, BottomSheet), `Date.now()` en render (Dashboard, Account), falso positivo alt-text (icono `Image` → `ImageIcon`). Nuevo aviso de Next 16.4 `no-location-assign-relative-destination` (11): los `window.location.href` son intencionales (recarga completa tras login/logout).
+- [x] **N° de documento opcional**: `normalizeDocument()` (utils) — vacío o relleno ("000000000", guiones) se guarda como `null` en ClientForm, `POST /api/clients` y `PATCH /api/clients/[id]`. Etiqueta "N° Documento (opcional)".
+
+### Bloque 2 — Modo lectura en la BD + CAPTCHA
+- [x] **`supabase/atomic-operations.sql`** (PENDIENTE DE APLICAR: `node scripts/exec-atomic-operations.mjs`): `can_write_business(uid)` + trigger de sentencia `trg_read_only_mode` en clients/loans/installments/payments/documents. Plan vencido/cancelado o cuenta bloqueada → error "modo lectura". Cubre UI, RPC SECURITY DEFINER (process_*_payment) y PostgREST directo. Sin sesión (cron, service_role) no aplica. Settings y soporte siguen escribibles.
+- [x] **CAPTCHA Turnstile** (`src/components/auth/Turnstile.tsx`) en registro, login y recuperación. Se activa con `NEXT_PUBLIC_TURNSTILE_SITE_KEY` en Vercel + clave secreta en Supabase (Auth → Attack Protection → Turnstile). **No protege el acceso con Google** (Supabase no aplica CAPTCHA a OAuth).
+- [x] **CSP**: `challenges.cloudflare.com` (script/frame) y Google Fonts — la fuente IBM Plex Sans estaba bloqueada por la CSP y nunca cargaba.
+
+### Bloque 3 — Operaciones de préstamo atómicas
+- [x] **`save_loan_with_schedule(p_loan_id, p_loan, p_installments)`**: crear préstamo + cronograma, o editar uno sin pagos reemplazando el cronograma, en una transacción. Usado por `NewLoanForm` y `PATCH /api/loans/[id]`.
+- [x] **`apply_loan_operation(p_loan_id, p_ops)`**: pago de préstamo abierto, abono a capital, liquidación y reversión en una transacción. Recalcula cuotas y agregados en SQL (`gp_private._gp_recalc_installment` / `_gp_recalc_loan`, port de `recalculateInstallment`/`updateLoanAfterPayment`, que se eliminaron del cliente). Rechaza doble reversión y reversión sin motivo. `reopen_if_unpaid` solo reabre préstamos `paid`. Los cálculos (cronograma francés/interés) siguen en TypeScript (`useFrenchLoan`/`useInterestOnlyLoan`). Cliente: `src/lib/loan-ops.ts`.
+- [x] Ambas son SECURITY INVOKER (RLS + modo lectura aplican); helpers en esquema `gp_private` (no expuesto por PostgREST).
+- [x] **Fix liquidación**: días de interés = `daysBetweenDateStrings(último pago, fecha de pago elegida)` (antes UTC vs local y siempre "hoy").
+- [x] **Fix reversión**: el detalle toma saldo/cuotas de la BD (antes mostraba saldo incorrecto tras revertir una cuota en francés); el modal de reversión muestra errores y no se cierra si falla.
+- [x] **Pruebas SQL**: `bash supabase/tests/run.sh` (PostgreSQL local + `supabase/tests/supabase-stub.sql`) — 34/34 OK.
+- [x] Verificado: tsc OK, vitest 54/54, build OK.
+
+### Orden de despliegue (importante)
+1. Aplicar `supabase/atomic-operations.sql` en producción **antes** de desplegar el código (la UI nueva llama a las RPC nuevas).
+2. Desplegar.
+3. CAPTCHA: crear sitio en Cloudflare Turnstile → `NEXT_PUBLIC_TURNSTILE_SITE_KEY` en Vercel → redeploy → recién entonces activar CAPTCHA en Supabase con la clave secreta (si se activa antes, el login con contraseña falla).
+
+### Pendiente
+- [ ] Rotar credenciales (Google OAuth secret, `sbp_…`, `vcp_…`) — lo hace el usuario.
+- [ ] Abuso de trials vía Google OAuth (CAPTCHA no lo cubre).
+- [ ] Middleware → `proxy` (Next 16 lo marcó como deprecado; sigue funcionando).
