@@ -41,6 +41,7 @@ const METHOD_LABELS: Record<string, string> = {
 }
 
 export default function AccountContent({ showHeader = true }: { showHeader?: boolean }) {
+  const [nowMs] = useState(() => Date.now())
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
   const [payments, setPayments] = useState<PaymentRow[]>([])
   const [paymentInfo, setPaymentInfo] = useState<{ bank_name: string; account_name: string; account_number: string; payment_phone: string } | null>(null)
@@ -215,7 +216,7 @@ export default function AccountContent({ showHeader = true }: { showHeader?: boo
   const subInGoodState = sub?.status === 'trial' || sub?.status === 'active'
   const showStatusBadge = !!statusInfo && !(isFreePlan && subInGoodState)
   const daysLeft = sub?.ends_at
-    ? Math.max(0, Math.ceil((new Date(sub.ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+    ? Math.max(0, Math.ceil((new Date(sub.ends_at).getTime() - nowMs) / (24 * 60 * 60 * 1000)))
     : null
 
   // Estimación del monto a pagar (diferencia prorrateada) para el plan seleccionado
@@ -285,7 +286,7 @@ export default function AccountContent({ showHeader = true }: { showHeader?: boo
               </div>
 
               {sub.ends_at && (() => {
-                const diff = new Date(sub.ends_at!).getTime() - Date.now()
+                const diff = new Date(sub.ends_at!).getTime() - nowMs
                 if (diff < 0) {
                   return (
                     <Alert variant="danger">

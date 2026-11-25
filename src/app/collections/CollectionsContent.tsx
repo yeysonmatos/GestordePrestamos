@@ -114,7 +114,7 @@ export default function CollectionsContent({
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) setUserId(data.user.id)
     })
-  }, [])
+  }, [supabase])
 
   const synthetic = useMemo(() => {
     const today: SyntheticInstallment[] = []
@@ -170,7 +170,7 @@ export default function CollectionsContent({
       const remainingLate = Math.max(0, totalLate - paidLate)
       return { ...inst, late_days: Math.max(inst.late_days, lateDays), late_amount: Math.max(Number(inst.late_amount || 0), remainingLate) }
     })
-  }, [allOverdue, lateInterestRate])
+  }, [allOverdue, lateInterestRate, graceDays])
 
   const handlePay = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
@@ -301,7 +301,7 @@ export default function CollectionsContent({
     }
 
     setLoading(false)
-  }, [selectedInstallment, userId, paymentAmount, includeMora, paymentDate, paymentMethod, paymentNotes, lateInterestRate, graceDays, supabase, router])
+  }, [selectedInstallment, userId, paymentAmount, includeMora, paymentDate, paymentMethod, paymentNotes, lateInterestRate, graceDays, supabase, router, loading])
 
   const todayTotal = useMemo(() => allToday.reduce((s, i) => s + Number(i.amount) - Number('paid_amount' in i ? (i.paid_amount || 0) : 0), 0), [allToday])
   const overdueTotal = useMemo(() => enrichedOverdue.reduce((s, i) => s + Number(i.amount) - Number('paid_amount' in i ? (i.paid_amount || 0) : 0), 0), [enrichedOverdue])

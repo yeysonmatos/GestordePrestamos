@@ -111,15 +111,11 @@ export default function CalendarContent({ installments, payments, openEndedLoans
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [listLimit, setListLimit] = useState(10)
 
-  const monthStart = startOfMonth(currentDate)
-  const monthEnd = endOfMonth(currentDate)
-  const calStart = startOfWeek(monthStart)
-  const calEnd = endOfWeek(monthEnd)
-
   const days = useMemo(() => {
     const d: Date[] = []
-    let day = calStart
-    while (day <= calEnd) {
+    let day = startOfWeek(startOfMonth(currentDate))
+    const last = endOfWeek(endOfMonth(currentDate))
+    while (day <= last) {
       d.push(day)
       day = addDays(day, 1)
     }

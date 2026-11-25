@@ -163,3 +163,13 @@ export function lateStatusLabel(status: string, lateDays: number = 0): string {
   if (!['late', 'late_1_30', 'late_31_60', 'late_61_90'].includes(status)) return getStatusLabel(status)
   return `Atrs ${Math.max(0, lateDays)}d`
 }
+
+/**
+ * El N° de documento del cliente es opcional. Vacío o un relleno sin valor
+ * (solo ceros, guiones o espacios, p. ej. "000000000") se guarda como null.
+ */
+export function normalizeDocument(value: string | null | undefined): string | null {
+  const v = (value ?? '').trim()
+  if (!v || /^[0\s-]+$/.test(v)) return null
+  return v
+}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-route'
 import { requireActiveSubscriptionApi } from '@/lib/subscription-guard'
+import { normalizeDocument } from '@/lib/utils'
 
 export async function GET(request: NextRequest) {
   const { supabase, supabaseResponse } = await createRouteHandlerClient(request)
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
       nickname: body.nickname || null,
       sex: body.sex || null,
       document_type: body.document_type || null,
-      document: body.document || null,
+      document: normalizeDocument(body.document),
       phone: body.phone || null,
       phone_alt: body.phone_alt || null,
       whatsapp: body.whatsapp || null,

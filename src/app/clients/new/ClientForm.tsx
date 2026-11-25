@@ -9,6 +9,7 @@ import Input, { Select } from '@/components/ui/Input'
 import { createClient } from '@/lib/supabase-client'
 import { logAuditEvent } from '@/lib/audit'
 import type { Client } from '@/types'
+import { normalizeDocument } from '@/lib/utils'
 
 interface Props {
   initialData?: Client
@@ -96,7 +97,7 @@ export default function ClientForm({ initialData, isEditing = false, clientId }:
       nickname: form.nickname || null,
       sex: form.sex || null,
       document_type: form.document_type || null,
-      document: form.document || null,
+      document: normalizeDocument(form.document),
       phone: form.phone || null,
       whatsapp: form.whatsapp || null,
       phone_alt: form.phone_alt || null,
@@ -184,7 +185,7 @@ export default function ClientForm({ initialData, isEditing = false, clientId }:
             <Select label="Tipo documento" value={form.document_type} onChange={e => update('document_type', e.target.value)}
               options={[{ value: 'cedula', label: 'Cédula' }, { value: 'pasaporte', label: 'Pasaporte' }, { value: 'otro', label: 'Otro' }]}
             />
-            <Input label="N° Documento" value={form.document} onChange={e => update('document', e.target.value)} />
+            <Input label="N° Documento (opcional)" value={form.document} onChange={e => update('document', e.target.value)} />
           </div>
         </div>
 

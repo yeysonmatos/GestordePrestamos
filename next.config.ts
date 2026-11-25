@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // La app no usa next/image: se desactiva la optimización de imágenes
+  // para no depender del endpoint /_next/image (superficie de ataque).
+  images: {
+    unoptimized: true,
+  },
   experimental: {
     optimizePackageImports: [
       '@phosphor-icons/react',

@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import StatCard from '@/components/ui/StatCard'
 import Badge from '@/components/ui/Badge'
@@ -64,8 +64,9 @@ export default function DashboardContent({
     }))
   }, [chartPayments, loans])
 
+  const [nowMs] = useState(() => Date.now())
   const subEndsAt = subscription?.ends_at ? new Date(subscription.ends_at).getTime() : null
-  const subExpired = !!subEndsAt && subEndsAt <= Date.now()
+  const subExpired = !!subEndsAt && subEndsAt <= nowMs
   const subDaysLeft = subscription?.ends_at ? Math.max(0, daysBetweenDateStrings(getLocalDate(), subscription.ends_at.slice(0, 10))) : 0
   const subExpiringSoon = !!subEndsAt && !subExpired && subDaysLeft <= 3
 

@@ -12,14 +12,14 @@ import Input, { Select } from '@/components/ui/Input'
 import { formatDate } from '@/lib/utils'
 import { createClient } from '@/lib/supabase-client'
 import { uploadFile, getFilePath } from '@/lib/storage'
-import { FileText, Image, Shield, Signature, UploadSimple, DownloadSimple, Trash } from '@phosphor-icons/react'
+import { FileText, Image as ImageIcon, Shield, Signature, UploadSimple, DownloadSimple, Trash } from '@phosphor-icons/react'
 import type { Document, Client } from '@/types'
 
 const typeIcons: Record<string, React.ReactNode> = {
   contract: <FileText className="h-5 w-5 text-primary" />,
   promissory: <Signature className="h-5 w-5 text-accent" />,
   guarantee: <Shield className="h-5 w-5 text-success" />,
-  photo: <Image className="h-5 w-5 text-warning" />,
+  photo: <ImageIcon className="h-5 w-5 text-warning" />,
   note: <FileText className="h-5 w-5 text-muted-foreground" />,
 }
 

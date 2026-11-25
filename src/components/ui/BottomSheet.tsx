@@ -25,9 +25,12 @@ export default function BottomSheet({ open, onClose, title, children, className 
     return () => { document.body.style.overflow = '' }
   }, [open])
 
+  const closeRef = useRef<() => void>(() => {})
+  useEffect(() => { closeRef.current = close })
+
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape') closeRef.current()
     }
     if (open) window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-route'
 import { requireActiveSubscriptionApi } from '@/lib/subscription-guard'
+import { normalizeDocument } from '@/lib/utils'
 
 // Whitelist de columnas actualizables (evita mass-assignment de campos
 // gestionados por el sistema: trust_score, trust_level, balance, status, user_id).
@@ -15,6 +16,7 @@ function pickClientFields(body: Record<string, unknown>): Record<string, unknown
   for (const key of CLIENT_UPDATE_FIELDS) {
     if (key in body) out[key] = body[key]
   }
+  if ('document' in out) out.document = normalizeDocument(out.document as string | null)
   return out
 }
 
