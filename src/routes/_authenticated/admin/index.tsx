@@ -28,7 +28,7 @@ function monthLabel(key: string): string {
   const parts = key.split("-").map(Number);
   const y = parts[0] ?? 2026;
   const m = parts[1] ?? 1;
-  return MONTHS_ES[m - 1] ?? '';
+  return MONTHS_ES[m - 1] ?? "";
 }
 
 function AdminResumen() {
@@ -84,23 +84,65 @@ function AdminResumen() {
       {isLoading && <p className="text-sm text-muted-foreground">Cargando…</p>}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Suscriptores activos" value={String(stats.activos)} hint={`de ${stats.negocios} suscriptores`} icon={Users} />
-        <Kpi label="Suscriptores que pagan" value={String(stats.pagan)} hint="Plan de pago activo" icon={ShieldCheck} />
-        <Kpi label="Ingreso mensual (MRR)" money={stats.mrr} hint="Según planes activos" icon={Wallet} />
-        <Kpi label="Total cobrado" money={stats.totalCobrado} hint="Suscripciones confirmadas" icon={HandCoins} />
+        <Kpi
+          label="Suscriptores activos"
+          value={String(stats.activos)}
+          hint={`de ${stats.negocios} suscriptores`}
+          icon={Users}
+        />
+        <Kpi
+          label="Suscriptores que pagan"
+          value={String(stats.pagan)}
+          hint="Plan de pago activo"
+          icon={ShieldCheck}
+        />
+        <Kpi
+          label="Ingreso mensual (MRR)"
+          money={stats.mrr}
+          hint="Según planes activos"
+          icon={Wallet}
+        />
+        <Kpi
+          label="Total cobrado"
+          money={stats.totalCobrado}
+          hint="Suscripciones confirmadas"
+          icon={HandCoins}
+        />
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Trial → Pago" value={`${stats.conversion}%`} hint="Suscriptores con al menos un pago" icon={ArrowUpRight} />
-        <Kpi label="En prueba (trial)" value={String(stats.trial)} hint="Sin pagar todavía" icon={Wallet} />
-        <Kpi label="Vencidas / bloqueados" value={String(stats.vencidos)} hint="Requieren atención" icon={MinusCircle} />
-        <Kpi label="Pagos pendientes" value={String(stats.pendientes)} hint="Por confirmar" icon={TrendingUp} />
+        <Kpi
+          label="Trial → Pago"
+          value={`${stats.conversion}%`}
+          hint="Suscriptores con al menos un pago"
+          icon={ArrowUpRight}
+        />
+        <Kpi
+          label="En prueba (trial)"
+          value={String(stats.trial)}
+          hint="Sin pagar todavía"
+          icon={Wallet}
+        />
+        <Kpi
+          label="Vencidas / bloqueados"
+          value={String(stats.vencidos)}
+          hint="Requieren atención"
+          icon={MinusCircle}
+        />
+        <Kpi
+          label="Pagos pendientes"
+          value={String(stats.pendientes)}
+          hint="Por confirmar"
+          icon={TrendingUp}
+        />
       </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-3">
         <div className="surface p-4 lg:col-span-2">
           <p className="font-display text-sm font-semibold">Ingresos por mes</p>
-          <p className="text-xs text-muted-foreground">Pagos de suscripción confirmados (últimos 6 meses)</p>
+          <p className="text-xs text-muted-foreground">
+            Pagos de suscripción confirmados (últimos 6 meses)
+          </p>
           <div className="mt-4 flex h-44 items-end gap-2">
             {stats.porMes.map((x) => (
               <div key={x.key} className="flex min-w-0 flex-1 flex-col items-center gap-1">
@@ -141,7 +183,10 @@ function AdminResumen() {
               <p className="font-display text-sm font-semibold">Por vencer (≤7 días)</p>
               <ul className="mt-2 space-y-1.5">
                 {stats.porVencer.map((n) => (
-                  <li key={n.id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <li
+                    key={n.id}
+                    className="flex items-center justify-between gap-2 text-xs text-muted-foreground"
+                  >
                     <span className="min-w-0 truncate">
                       <Link
                         to="/admin/users/$id"
@@ -172,7 +217,8 @@ function AdminResumen() {
               <span className="min-w-0 truncate">
                 {p.business_name}
                 <span className="ml-2 text-xs text-muted-foreground">
-                  {formatDate(p.payment_date)} · {p.status === "confirmed" ? "confirmado" : p.status}
+                  {formatDate(p.payment_date)} ·{" "}
+                  {p.status === "confirmed" ? "confirmado" : p.status}
                 </span>
               </span>
               <Money value={p.amount} className="num shrink-0 font-bold" />
@@ -184,14 +230,13 @@ function AdminResumen() {
   );
 }
 
-
-
-
 function expiringLabel(endsAt: string | null): string {
   if (!endsAt) return "—";
   const days = Math.ceil((new Date(endsAt).getTime() - Date.now()) / 86400000);
   const fecha = endsAt.slice(0, 10).split("-").reverse().join("/");
-  return days <= 0 ? `venció el ${fecha}` : `vence en ${days} día${days === 1 ? "" : "s"} (${fecha})`;
+  return days <= 0
+    ? `venció el ${fecha}`
+    : `vence en ${days} día${days === 1 ? "" : "s"} (${fecha})`;
 }
 
 function ExtendButton({ userId }: { userId: string }) {

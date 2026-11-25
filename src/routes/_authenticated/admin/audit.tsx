@@ -16,7 +16,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAdminAudit, type AuditRow } from "@/lib/admin";
-import { ACTION_LABELS, ENTITY_LABELS, actionLabel, detailsSummary, entityOptions } from "@/lib/audit-ui";
+import {
+  ACTION_LABELS,
+  ENTITY_LABELS,
+  actionLabel,
+  detailsSummary,
+  entityOptions,
+} from "@/lib/audit-ui";
 import { buildCsv, downloadCsv } from "@/lib/csv";
 import { formatDateTime } from "@/lib/finance";
 
@@ -117,7 +123,10 @@ function AdminAudit() {
             }}
           />
         </div>
-        <Select value={userFilter || "all"} onValueChange={(v) => setUserFilter(v === "all" ? "" : v)}>
+        <Select
+          value={userFilter || "all"}
+          onValueChange={(v) => setUserFilter(v === "all" ? "" : v)}
+        >
           <SelectTrigger className="h-11 w-[170px]">
             <SelectValue placeholder="Todos los usuarios" />
           </SelectTrigger>
@@ -130,7 +139,10 @@ function AdminAudit() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={actionFilter || "all"} onValueChange={(v) => setActionFilter(v === "all" ? "" : v)}>
+        <Select
+          value={actionFilter || "all"}
+          onValueChange={(v) => setActionFilter(v === "all" ? "" : v)}
+        >
           <SelectTrigger className="h-11 w-[170px]">
             <SelectValue placeholder="Toda acción" />
           </SelectTrigger>
@@ -143,7 +155,10 @@ function AdminAudit() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={entityFilter || "all"} onValueChange={(v) => setEntityFilter(v === "all" ? "" : v)}>
+        <Select
+          value={entityFilter || "all"}
+          onValueChange={(v) => setEntityFilter(v === "all" ? "" : v)}
+        >
           <SelectTrigger className="h-11 w-[160px]">
             <SelectValue placeholder="Toda entidad" />
           </SelectTrigger>
@@ -189,15 +204,21 @@ function AdminAudit() {
       ) : loaded.length === 0 ? (
         <div className="rounded-xl border bg-card py-12 text-center">
           <FileText className="mx-auto mb-3 size-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Sin eventos para los filtros seleccionados.</p>
+          <p className="text-sm text-muted-foreground">
+            Sin eventos para los filtros seleccionados.
+          </p>
         </div>
       ) : (
         <>
           <div className="overflow-hidden rounded-xl border bg-card">
             <div className="flex items-center gap-2 border-b border-border px-4 py-3">
               <FileText className="size-4 text-muted-foreground" />
-              <p className="font-display text-sm font-semibold">Últimas acciones de la plataforma</p>
-              <span className="ml-auto text-xs text-muted-foreground">{total} evento{total === 1 ? "" : "s"}</span>
+              <p className="font-display text-sm font-semibold">
+                Últimas acciones de la plataforma
+              </p>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {total} evento{total === 1 ? "" : "s"}
+              </span>
             </div>
             <ul className="divide-y divide-border">
               {loaded.map((l) => (
@@ -207,7 +228,11 @@ function AdminAudit() {
           </div>
           {loaded.length < total && (
             <div className="flex justify-center">
-              <Button variant="ghost" disabled={isFetching} onClick={() => setLimit((v) => v + PAGE_SIZE)}>
+              <Button
+                variant="ghost"
+                disabled={isFetching}
+                onClick={() => setLimit((v) => v + PAGE_SIZE)}
+              >
                 Cargar más
               </Button>
             </div>

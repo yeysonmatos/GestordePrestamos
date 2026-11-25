@@ -228,8 +228,8 @@ export function RegistrarPagoButton({
           <DialogHeader>
             <DialogTitle>Registrar pago de suscripción</DialogTitle>
             <DialogDescription>
-              El pago queda pendiente hasta que lo confirmes. Puedes elegir un plan de destino para un
-              upgrade.
+              El pago queda pendiente hasta que lo confirmes. Puedes elegir un plan de destino para
+              un upgrade.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -316,7 +316,11 @@ export function RegistrarPagoButton({
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="accent" disabled={registrar.isPending} onClick={() => registrar.mutate()}>
+            <Button
+              variant="accent"
+              disabled={registrar.isPending}
+              onClick={() => registrar.mutate()}
+            >
               {registrar.isPending ? "Guardando…" : "Registrar pago"}
             </Button>
           </DialogFooter>
@@ -325,6 +329,3 @@ export function RegistrarPagoButton({
     </>
   );
 }
-
-
-

@@ -65,7 +65,13 @@ function AdminUserDetail() {
   const [extending, setExtending] = useState(false);
   const [histKey, setHistKey] = useState(0);
   const [historial, setHistorial] = useState<
-    { id: string; plan_name: string; status: string; starts_at: string | null; ends_at: string | null }[]
+    {
+      id: string;
+      plan_name: string;
+      status: string;
+      starts_at: string | null;
+      ends_at: string | null;
+    }[]
   >([]);
 
   useEffect(() => {
@@ -116,7 +122,8 @@ function AdminUserDetail() {
   }
 
   const cambiado =
-    (plan ?? negocio.plan_display) !== negocio.plan_display || (estado ?? negocio.plan_status) !== negocio.plan_status;
+    (plan ?? negocio.plan_display) !== negocio.plan_display ||
+    (estado ?? negocio.plan_status) !== negocio.plan_status;
 
   const confirmar = (pid: string) => {
     confirmPayment(pid)
@@ -172,12 +179,18 @@ function AdminUserDetail() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Dato label="Plan" value={`${PLAN_LABEL[negocio.plan] ?? negocio.plan_display} · ${ESTADO_LABEL[negocio.plan_status] ?? negocio.plan_status}`} />
+        <Dato
+          label="Plan"
+          value={`${PLAN_LABEL[negocio.plan] ?? negocio.plan_display} · ${ESTADO_LABEL[negocio.plan_status] ?? negocio.plan_status}`}
+        />
         <Dato
           label="Vence"
           value={negocio.plan_renews_at ? formatDate(negocio.plan_renews_at.slice(0, 10)) : "—"}
         />
-        <Dato label="Deudores / Préstamos" value={`${negocio.clientes} / ${negocio.prestamosActivos} activos`} />
+        <Dato
+          label="Deudores / Préstamos"
+          value={`${negocio.clientes} / ${negocio.prestamosActivos} activos`}
+        />
         <Dato label="Capital colocado" money={negocio.capital} />
       </div>
 
@@ -213,7 +226,11 @@ function AdminUserDetail() {
             </SelectContent>
           </Select>
         </div>
-        <Button variant="accent" disabled={!cambiado || guardar.isPending} onClick={() => guardar.mutate()}>
+        <Button
+          variant="accent"
+          disabled={!cambiado || guardar.isPending}
+          onClick={() => guardar.mutate()}
+        >
           Guardar cambios
         </Button>
         {!isSelf && (
@@ -226,7 +243,11 @@ function AdminUserDetail() {
             {negocio.blocked ? "Desbloquear acceso" : "Bloquear acceso"}
           </Button>
         )}
-        <RegistrarPagoButton negocios={data?.negocios ?? []} presetUserId={id} label="Registrar pago" />
+        <RegistrarPagoButton
+          negocios={data?.negocios ?? []}
+          presetUserId={id}
+          label="Registrar pago"
+        />
       </div>
 
       <div className="surface mt-3 flex flex-wrap items-end gap-3 p-4">
@@ -251,7 +272,9 @@ function AdminUserDetail() {
       <div className="surface mt-3 p-4">
         <p className="font-display text-sm font-semibold">Historial de pagos ({misPagos.length})</p>
         {!misPagos.length && (
-          <p className="mt-2 text-sm text-muted-foreground">Este negocio no tiene pagos registrados.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Este negocio no tiene pagos registrados.
+          </p>
         )}
         <ul className="mt-2 divide-y divide-border">
           {misPagos.map((p) => (
@@ -265,7 +288,10 @@ function AdminUserDetail() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <PaymentStatusBadge status={p.status} label={PAGO_STATUS_LABEL[p.status] ?? p.status} />
+                <PaymentStatusBadge
+                  status={p.status}
+                  label={PAGO_STATUS_LABEL[p.status] ?? p.status}
+                />
                 {p.status === "pending" && (
                   <>
                     <Button size="sm" variant="accent" onClick={() => confirmar(p.id)}>
@@ -291,11 +317,19 @@ function AdminUserDetail() {
         ) : (
           <ul className="divide-y divide-border">
             {historial.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
+              <li
+                key={s.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm"
+              >
                 <span className="font-medium">
                   {s.plan_name}
                   <span className="ml-2 text-xs text-muted-foreground">
-                    {{ trial: "Prueba", active: "Activa", expired: "Vencida", cancelled: "Cancelada" }[s.status] ?? s.status}
+                    {{
+                      trial: "Prueba",
+                      active: "Activa",
+                      expired: "Vencida",
+                      cancelled: "Cancelada",
+                    }[s.status] ?? s.status}
                   </span>
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -333,4 +367,3 @@ function AdminUserDetail() {
     </>
   );
 }
-

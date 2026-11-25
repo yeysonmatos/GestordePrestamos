@@ -35,7 +35,10 @@ import { useSubscription, useSubscriptionPayments } from "@/lib/db";
 import { daysBetween, formatDate, rd, todaySD } from "@/lib/finance";
 import { notifyAdminUpgradeRequest } from "@/lib/admin-fns";
 
-const STATUS_META: Record<string, { label: string; tone: "neutral" | "success" | "danger" | "info" }> = {
+const STATUS_META: Record<
+  string,
+  { label: string; tone: "neutral" | "success" | "danger" | "info" }
+> = {
   trial: { label: "Prueba", tone: "info" },
   active: { label: "Activo", tone: "success" },
   expired: { label: "Vencido", tone: "danger" },
@@ -59,7 +62,12 @@ export function AccountPanel() {
   const [payOpen, setPayOpen] = useState(false);
   const [upOpen, setUpOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [payForm, setPayForm] = useState({ amount: "", method: "transfer", payment_date: todaySD(), notes: "" });
+  const [payForm, setPayForm] = useState({
+    amount: "",
+    method: "transfer",
+    payment_date: todaySD(),
+    notes: "",
+  });
   const [upgradePlanId, setUpgradePlanId] = useState("");
   const [pwd, setPwd] = useState("");
   const [pwd2, setPwd2] = useState("");
@@ -73,7 +81,12 @@ export function AccountPanel() {
         .eq("id", SINGLETON)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      return data as { bank_name: string | null; account_name: string | null; account_number: string | null; payment_phone: string | null } | null;
+      return data as {
+        bank_name: string | null;
+        account_name: string | null;
+        account_number: string | null;
+        payment_phone: string | null;
+      } | null;
     },
   });
 
@@ -93,12 +106,16 @@ export function AccountPanel() {
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Cargando…</p>;
 
-  const meta = sub ? STATUS_META[sub.status] ?? { label: sub.status, tone: "neutral" as const } : null;
+  const meta = sub
+    ? (STATUS_META[sub.status] ?? { label: sub.status, tone: "neutral" as const })
+    : null;
   const free = (sub?.plan_price ?? 0) <= 0;
   const today = todaySD();
   const daysLeft = sub?.ends_at ? Math.max(0, daysBetween(today, sub.ends_at.slice(0, 10))) : null;
   const expired = !!sub?.ends_at && daysLeft === 0 && sub.ends_at.slice(0, 10) < today;
-  const upgradeOptions = plans.filter((p) => p.id !== sub?.plan_id && Number(p.price) > (sub?.plan_price ?? 0));
+  const upgradeOptions = plans.filter(
+    (p) => p.id !== sub?.plan_id && Number(p.price) > (sub?.plan_price ?? 0),
+  );
 
   function copy(text: string, label: string) {
     navigator.clipboard.writeText(text).then(
@@ -208,13 +225,15 @@ export function AccountPanel() {
     <div className="space-y-4">
       {sub && expired && (
         <div className="rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Tu plan venció el {formatDate(sub.ends_at)}. Reporta tu pago o contacta al administrador para renovar.
+          Tu plan venció el {formatDate(sub.ends_at)}. Reporta tu pago o contacta al administrador
+          para renovar.
         </div>
       )}
       {sub && !expired && daysLeft !== null && daysLeft <= 3 && (
         <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
-          Tu plan {sub.plan_name} vence en {daysLeft === 0 ? "hoy" : `${daysLeft} día${daysLeft === 1 ? "" : "s"}`}{" "}
-          ({formatDate(sub.ends_at)}).
+          Tu plan {sub.plan_name} vence en{" "}
+          {daysLeft === 0 ? "hoy" : `${daysLeft} día${daysLeft === 1 ? "" : "s"}`} (
+          {formatDate(sub.ends_at)}).
         </div>
       )}
 
@@ -262,7 +281,12 @@ export function AccountPanel() {
                   <Wallet className="mr-1 size-4" /> Reportar pago
                 </Button>
                 {upgradeOptions.length > 0 && (
-                  <Button variant="secondary" size="sm" className="min-h-11" onClick={() => setUpOpen(true)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="min-h-11"
+                    onClick={() => setUpOpen(true)}
+                  >
                     <ArrowUpRight className="mr-1 size-4" /> Cambiar de plan
                   </Button>
                 )}
@@ -278,7 +302,9 @@ export function AccountPanel() {
             <Receipt className="size-5 text-accent" /> Historial de pagos
           </h2>
           {payments.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Aún no hay pagos registrados.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Aún no hay pagos registrados.
+            </p>
           ) : (
             <ul className="mt-3 max-h-80 divide-y divide-border overflow-y-auto">
               {payments.map((p) => {
@@ -389,7 +415,9 @@ export function AccountPanel() {
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">El administrador aún no publica su cuenta de cobro.</p>
+            <p className="text-sm text-muted-foreground">
+              El administrador aún no publica su cuenta de cobro.
+            </p>
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -412,7 +440,10 @@ export function AccountPanel() {
             </div>
             <div className="space-y-1.5">
               <Label>Método</Label>
-              <Select value={payForm.method} onValueChange={(v) => setPayForm({ ...payForm, method: v })}>
+              <Select
+                value={payForm.method}
+                onValueChange={(v) => setPayForm({ ...payForm, method: v })}
+              >
                 <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
@@ -451,8 +482,8 @@ export function AccountPanel() {
           <DialogHeader>
             <DialogTitle>Cambiar de plan</DialogTitle>
             <DialogDescription>
-              Elige el plan al que quieres subir. Se creará una solicitud de pago; al confirmarla, tu
-              plan cambia y conservas los días ya pagados.
+              Elige el plan al que quieres subir. Se creará una solicitud de pago; al confirmarla,
+              tu plan cambia y conservas los días ya pagados.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
@@ -483,4 +514,3 @@ export function AccountPanel() {
     </div>
   );
 }
-

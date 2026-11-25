@@ -64,11 +64,15 @@ function AdminPaymentConfig() {
     setSaving(false);
   }
 
-  if (loading) return <div className="py-12 text-center text-sm text-muted-foreground">Cargando...</div>;
+  if (loading)
+    return <div className="py-12 text-center text-sm text-muted-foreground">Cargando...</div>;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Datos de cobro" subtitle="Cuenta donde tus suscriptores pagan la mensualidad" />
+      <PageHeader
+        title="Datos de cobro"
+        subtitle="Cuenta donde tus suscriptores pagan la mensualidad"
+      />
       {message && <Alert variant="default">{message}</Alert>}
       {error && <Alert variant="destructive">{error}</Alert>}
 
@@ -81,7 +85,8 @@ function AdminPaymentConfig() {
             <div>
               <h3 className="text-base font-semibold text-foreground">Cuenta de cobro</h3>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                Estos datos se muestran a tus clientes para que puedan pagar su suscripción por transferencia.
+                Estos datos se muestran a tus clientes para que puedan pagar su suscripción por
+                transferencia.
               </p>
             </div>
           </div>
@@ -89,19 +94,35 @@ function AdminPaymentConfig() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Banco</label>
-              <Input value={form.bank_name} onChange={(e) => update("bank_name", e.target.value)} placeholder="Ej: Banco Popular Dominicano" />
+              <Input
+                value={form.bank_name}
+                onChange={(e) => update("bank_name", e.target.value)}
+                placeholder="Ej: Banco Popular Dominicano"
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Titular de la cuenta</label>
-              <Input value={form.account_name} onChange={(e) => update("account_name", e.target.value)} placeholder="Ej: Juan Pérez" />
+              <Input
+                value={form.account_name}
+                onChange={(e) => update("account_name", e.target.value)}
+                placeholder="Ej: Juan Pérez"
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Número de cuenta</label>
-              <Input value={form.account_number} onChange={(e) => update("account_number", e.target.value)} placeholder="Ej: 123456789012" />
+              <Input
+                value={form.account_number}
+                onChange={(e) => update("account_number", e.target.value)}
+                placeholder="Ej: 123456789012"
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Teléfono de pago (contacto)</label>
-              <Input value={form.payment_phone} onChange={(e) => update("payment_phone", e.target.value)} placeholder="Ej: 809-000-0000" />
+              <Input
+                value={form.payment_phone}
+                onChange={(e) => update("payment_phone", e.target.value)}
+                placeholder="Ej: 809-000-0000"
+              />
             </div>
           </div>
 
@@ -115,6 +136,3 @@ function AdminPaymentConfig() {
     </div>
   );
 }
-
-
-

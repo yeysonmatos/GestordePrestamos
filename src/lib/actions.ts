@@ -12,6 +12,7 @@ import type { Installment, Loan } from "@/lib/db";
 import { FREQ_TO_DB, LOAN_TYPE_TO_DB, METHOD_TO_DB, toLoan } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { whatsappUrl } from "@/lib/messages";
+import { applyLoanOperation, fetchRebalanceInputs, planCapitalRebalance } from "@/lib/loan-ops";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const num = (v: number | null | undefined) => Number(v ?? 0);
@@ -358,13 +359,9 @@ export async function payOpenInterest(params: {
   const interest_amount = round2(Math.min(total, interestDue || total));
   const late_amount = round2(Math.max(0, total - interest_amount));
 
-  const { data: created, error } = await supabase
-    .from("payments")
-    .insert({
-      user_id,
-      loan_id: loan.id,
-      installment_id: null,
-      client_id: loan.client_id,
+  // Pago + recálculo del préstamo en una sola transacción.
+  const { payment: created } = await applyLoanOperation(loan.id, {
+    payment: {
       amount: total,
       capital_amount: 0,
       interest_amount,
@@ -373,13 +370,9 @@ export async function payOpenInterest(params: {
       payment_date: params.paymentDate || todaySD(),
       method: METHOD_TO_DB[method] ?? "cash",
       notes: note || "Interés (préstamo abierto)",
-      status: "paid",
-    })
-    .select("id, amount, capital_amount, interest_amount, late_amount, payment_date, method, notes")
-    .single();
-  if (error) throw new Error(error.message);
-
-  await refreshLoanStatus(loan.id);
+    },
+  });
+  if (!created) throw new Error("No se pudo registrar el pago");
 
   const ctx = await loanAuditCtx(loan.id);
   await logAudit({
@@ -418,122 +411,6 @@ export async function payOpenInterest(params: {
   } satisfies PaymentResult;
 }
 
-/**
- * Rebalancea el préstamo tras cambiar el capital pagado (abono o reversión),
- * igual que GP: en francesa recalcula las cuotas pendientes (la cuota BAJA y
- * bajan los intereses totales, el número de cuotas y las fechas no cambian);
- * en solo interés recalcula el interés periódico sobre el saldo restante.
- * Con applied = monto del abono recién hecho, detecta liquidación por abono.
- */
-async function applyCapitalRebalance(loanId: string, applied = 0) {
-  const { data: loanRow } = await supabase.from("loans").select("*").eq("id", loanId).maybeSingle();
-  if (!loanRow) return;
-  const loan = toLoan(loanRow);
-
-  const { data: instRows } = await supabase
-    .from("installments")
-    .select("*")
-    .eq("loan_id", loanId)
-    .order("number");
-  const rows = instRows ?? [];
-  const pend = rows.filter((r) => r.status !== "paid");
-  const paid = rows.filter((r) => r.status === "paid");
-
-  const { data: capRows } = await supabase
-    .from("payments")
-    .select("capital_amount")
-    .eq("loan_id", loanId)
-    .eq("status", "paid");
-  const capitalPaid = round2((capRows ?? []).reduce((s, p) => s + num(p.capital_amount), 0));
-  const capitalRemaining = round2(Math.max(loan.principal - capitalPaid, 0));
-  const contractualPending = round2(
-    pend.reduce((s, r) => s + Math.max(0, num(r.amount) - num(r.paid_amount)), 0),
-  );
-
-  // El abono cubrió todo lo contractualmente pendiente -> cerrar pagando todo.
-  if (!loan.open_ended && contractualPending - applied <= 0.009 && pend.length > 0) {
-    for (const inst of pend) {
-      await supabase
-        .from("installments")
-        .update({ status: "paid", paid_amount: num(inst.amount), paid_at: todaySD() })
-        .eq("id", inst.id);
-    }
-    return;
-  }
-  if (!loan.open_ended && capitalRemaining <= 0.009 && pend.length > 0) {
-    for (const inst of pend) {
-      await supabase
-        .from("installments")
-        .update({ status: "paid", paid_amount: num(inst.amount), paid_at: todaySD() })
-        .eq("id", inst.id);
-    }
-    return;
-  }
-
-  const i = periodicRatePct(loan.interest_rate, loan.frequency);
-
-  if (loan.open_ended) {
-    await supabase
-      .from("loans")
-      .update({ installment_amount: round2(capitalRemaining * i) })
-      .eq("id", loanId);
-    return;
-  }
-
-  if (loan.loan_type === "solo_interes") {
-    const newInterest = round2(capitalRemaining * i);
-    const lastNum = pend.length > 0 ? Math.max(...pend.map((r) => Number(r.number))) : 0;
-    for (const inst of pend) {
-      const isLast = Number(inst.number) === lastNum;
-      await supabase
-        .from("installments")
-        .update({
-          amount: round2(newInterest + (isLast ? capitalRemaining : 0)),
-          interest: newInterest,
-          capital: isLast ? capitalRemaining : 0,
-          balance: isLast ? 0 : capitalRemaining,
-        })
-        .eq("id", inst.id);
-    }
-    await supabase.from("loans").update({ installment_amount: newInterest }).eq("id", loanId);
-    return;
-  }
-
-  // Francesa
-  const remainingCount = pend.length;
-  if (remainingCount <= 0 || capitalRemaining <= 0.009) return;
-  const sched = recalcFrenchSchedule({
-    capital: capitalRemaining,
-    remainingCount,
-    monthlyRatePct: loan.interest_rate,
-    frequency: loan.frequency as Frequency,
-    firstPaymentDate: loan.first_payment_date,
-    startFrom: paid.length + 1,
-  });
-  for (const row of sched) {
-    await supabase
-      .from("installments")
-      .update({
-        amount: row.total_amount,
-        capital: row.principal_amount,
-        interest: row.interest_amount,
-        balance: row.balance,
-      })
-      .eq("loan_id", loanId)
-      .eq("number", row.number);
-  }
-  const paidTotal = paid.reduce((s, r) => s + num(r.amount), 0);
-  const paidInt = paid.reduce((s, r) => s + num(r.interest), 0);
-  await supabase
-    .from("loans")
-    .update({
-      installment_amount: sched[0] ? round2(sched[0].total_amount) : loan.installment_amount,
-      total_amount: round2(sched.reduce((s, r) => s + r.total_amount, 0) + paidTotal),
-      total_interest: round2(sched.reduce((s, r) => s + r.interest_amount, 0) + paidInt),
-    })
-    .eq("id", loanId);
-}
-
 /** Abono a capital: registra el pago y rebalancea el préstamo (GP). */
 export async function payCapital(params: {
   loan: Loan;
@@ -547,28 +424,31 @@ export async function payCapital(params: {
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("Monto inválido");
   if (paymentDate && paymentDate > todaySD()) throw new Error("La fecha no puede ser futura");
 
-  const { data: created, error } = await supabase
-    .from("payments")
-    .insert({
-      user_id,
-      loan_id: loan.id,
-      client_id: loan.client_id,
-      amount: round2(amount),
-      capital_amount: round2(amount),
+  // Pago + rebalanceo del cronograma + recálculo del préstamo en una sola transacción.
+  const abono = round2(amount);
+  const inputs = await fetchRebalanceInputs(loan.id);
+  const plan = planCapitalRebalance({
+    loan: inputs.loan,
+    rows: inputs.rows,
+    capitalPaid: round2(inputs.capitalPaid + abono),
+    applied: abono,
+    today: todaySD(),
+  });
+  const { payment: created } = await applyLoanOperation(loan.id, {
+    payment: {
+      amount: abono,
+      capital_amount: abono,
       interest_amount: 0,
       late_amount: 0,
       type: "capital_abono",
       payment_date: paymentDate || todaySD(),
       method: METHOD_TO_DB[method] ?? "cash",
       notes: note || null,
-      status: "paid",
-    })
-    .select("id, amount, capital_amount, interest_amount, late_amount, payment_date, method")
-    .single();
-  if (error) throw new Error(error.message);
-
-  await applyCapitalRebalance(loan.id, round2(amount));
-  await refreshLoanStatus(loan.id);
+    },
+    installment_writes: plan.installmentWrites,
+    loan_updates: plan.loanUpdates,
+  });
+  if (!created) throw new Error("No se pudo registrar el abono");
 
   const ctx = await loanAuditCtx(loan.id);
   await logAudit({
@@ -611,12 +491,9 @@ export async function settleLoan(params: {
         .eq("loan_id", loan.id)
         .neq("status", "paid");
 
-  const { data: created, error } = await supabase
-    .from("payments")
-    .insert({
-      user_id,
-      loan_id: loan.id,
-      client_id: loan.client_id,
+  // Pago + cuotas pendientes pagadas + cierre del préstamo en una sola transacción.
+  const { payment: created } = await applyLoanOperation(loan.id, {
+    payment: {
       amount: round2(total),
       capital_amount: capital,
       interest_amount: round2(interest),
@@ -625,27 +502,14 @@ export async function settleLoan(params: {
       payment_date: todaySD(),
       method: "cash",
       notes: note || "Liquidación anticipada",
-      status: "paid",
-    })
-    .select("id, amount, capital_amount, interest_amount, late_amount, payment_date, method")
-    .single();
-  if (error) throw new Error(error.message);
-
-  for (const inst of pendientes ?? []) {
-    await supabase
-      .from("installments")
-      .update({
-        paid_amount: num(inst.amount),
-        status: "paid",
-        paid_at: todaySD(),
-      })
-      .eq("id", inst.id);
-  }
-  await supabase
-    .from("loans")
-    .update({ status: "paid", paid_at: new Date().toISOString() })
-    .eq("id", loan.id);
-  await refreshLoanStatus(loan.id);
+    },
+    installment_writes: (pendientes ?? []).map((inst) => ({
+      key: "id" as const,
+      value: inst.id,
+      data: { paid_amount: num(inst.amount), status: "paid", paid_at: todaySD() },
+    })),
+  });
+  if (!created) throw new Error("No se pudo registrar la liquidación");
 
   const ctx = await loanAuditCtx(loan.id);
   await logAudit({
@@ -665,37 +529,6 @@ export async function settleLoan(params: {
   });
 
   return { payment: created };
-}
-
-/** Recalcula una cuota desde los pagos validos vinculados (como recalculateInstallment de GP). */
-async function recalcInstallmentFromPayments(installmentId: string) {
-  const [{ data: ps }, { data: inst }] = await Promise.all([
-    supabase
-      .from("payments")
-      .select("capital_amount, interest_amount, late_amount, payment_date")
-      .eq("installment_id", installmentId)
-      .eq("status", "paid")
-      .order("payment_date", { ascending: false }),
-    supabase.from("installments").select("amount").eq("id", installmentId).maybeSingle(),
-  ]);
-  if (!inst) return;
-  const amt = num(inst.amount);
-  const totalPaid = (ps ?? []).reduce(
-    (s, p) => s + num(p.capital_amount) + num(p.interest_amount),
-    0,
-  );
-  const latePaid = (ps ?? []).reduce((s, p) => s + num(p.late_amount), 0);
-  const fully = totalPaid >= amt - 0.009;
-  const newPaid = round2(Math.min(totalPaid, amt));
-  await supabase
-    .from("installments")
-    .update({
-      paid_amount: newPaid,
-      paid_late_amount: round2(latePaid),
-      status: fully ? "paid" : newPaid > 0.009 ? "partial" : "pending",
-      paid_at: fully ? (ps?.[0]?.payment_date ?? null) : null,
-    })
-    .eq("id", installmentId);
 }
 
 export async function reversePayment(params: { paymentId: string; reason: string }) {
@@ -729,31 +562,48 @@ export async function reversePayment(params: { paymentId: string; reason: string
     }
   }
 
-  const { error: revErr } = await supabase
-    .from("payments")
-    .update({
-      status: "reversed",
-      reversed_at: new Date().toISOString(),
+  const inputs = payment.loan_id ? await fetchRebalanceInputs(payment.loan_id) : null;
+
+  if (!payment.loan_id || !inputs || inputs.loan.deleted) {
+    // Pago sin préstamo o de un préstamo archivado: solo se marca revertido
+    // (no hay cronograma vivo que recalcular).
+    const { data: rev, error: revErr } = await supabase
+      .from("payments")
+      .update({
+        status: "reversed",
+        reversed_at: new Date().toISOString(),
+        reversal_reason: params.reason,
+      })
+      .eq("id", params.paymentId)
+      .eq("status", "paid")
+      .select("id");
+    if (revErr) throw new Error(revErr.message);
+    if (!rev?.length) throw new Error("Este pago ya fue revertido");
+  } else {
+    // Reversión + recálculo de cuotas/cronograma + préstamo en una sola transacción.
+    // La base rechaza revertir dos veces el mismo pago.
+    const ops: Parameters<typeof applyLoanOperation>[1] = {
+      reverse_payment_id: params.paymentId,
       reversal_reason: params.reason,
-    })
-    .eq("id", params.paymentId);
-  if (revErr) throw new Error(revErr.message);
-
-  if (payment.installment_id) {
-    await recalcInstallmentFromPayments(payment.installment_id);
-  } else if (payment.type === "liquidation" && payment.loan_id) {
-    const { data: insts } = await supabase
-      .from("installments")
-      .select("id")
-      .eq("loan_id", payment.loan_id);
-    for (const inst of insts ?? []) await recalcInstallmentFromPayments(inst.id);
-  } else if (payment.type === "capital_abono" && payment.loan_id) {
-    // Devuelve el capital y rebalancea: la cuota francesa vuelve a subir,
-    // el interes periodico de solo-interes se restaura (GP rebalanceReverseAbono).
-    await applyCapitalRebalance(payment.loan_id);
+    };
+    if (payment.installment_id) {
+      ops.recalc_installments = [payment.installment_id];
+    } else if (payment.type === "liquidation") {
+      ops.recalc_installments = "all";
+    } else if (payment.type === "capital_abono") {
+      // Devuelve el capital y rebalancea: la cuota francesa vuelve a subir,
+      // el interés periódico de solo interés se restaura.
+      const plan = planCapitalRebalance({
+        loan: inputs.loan,
+        rows: inputs.rows,
+        capitalPaid: round2(inputs.capitalPaid - num(payment.capital_amount)),
+        today: todaySD(),
+      });
+      ops.installment_writes = plan.installmentWrites;
+      ops.loan_updates = plan.loanUpdates;
+    }
+    await applyLoanOperation(payment.loan_id, ops);
   }
-
-  if (payment.loan_id) await refreshLoanStatus(payment.loan_id);
 
   const ctx = await loanAuditCtx(payment.loan_id);
   await logAudit({

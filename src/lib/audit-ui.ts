@@ -14,7 +14,10 @@ export interface ActionLabel extends ActionVariant {
 
 const V_PAID: ActionVariant = { variant: "default" };
 const V_ACTIVE: ActionVariant = { variant: "secondary" };
-const V_SUCCESS: ActionVariant = { variant: "outline", className: "border-success/50 text-success" };
+const V_SUCCESS: ActionVariant = {
+  variant: "outline",
+  className: "border-success/50 text-success",
+};
 const V_CANCELLED: ActionVariant = { variant: "destructive" };
 const V_DEFAULT: ActionVariant = { variant: "outline" };
 
@@ -217,7 +220,10 @@ function formatYesNo(v: unknown): string {
 }
 
 function condense(parts: string[]): string {
-  return parts.join(" · ").replace(/\s{2,}/g, " ").trim();
+  return parts
+    .join(" · ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 function prettyTimestamp(folder: unknown): string {
@@ -231,11 +237,7 @@ function prettyTimestamp(folder: unknown): string {
 }
 
 /** Hechos legibles (en español) para el detalle de un evento de auditoría. */
-function buildFacts(
-  entityType: string,
-  details: Record<string, unknown>,
-  full: boolean,
-): string[] {
+function buildFacts(entityType: string, details: Record<string, unknown>, full: boolean): string[] {
   const parts: string[] = [];
 
   if (entityType === "backup") {
@@ -268,7 +270,8 @@ function buildFacts(
   if (entityType === "subscription_payment") {
     const amount = formatMoney(details["amount"]);
     if (amount) parts.push(amount);
-    if (details["plan"] && typeof details["plan"] === "string") parts.push(`Plan: ${details["plan"]}`);
+    if (details["plan"] && typeof details["plan"] === "string")
+      parts.push(`Plan: ${details["plan"]}`);
     if (details["days"] != null) parts.push(`${details["days"]} días`);
     if (details["reason"] && typeof details["reason"] === "string")
       parts.push(`Motivo: ${details["reason"]}`);
@@ -284,8 +287,10 @@ function buildFacts(
   }
 
   if (entityType === "subscription") {
-    if (details["plan"] && typeof details["plan"] === "string") parts.push(`Plan: ${details["plan"]}`);
-    if (details["estado"] && typeof details["estado"] === "string") parts.push(`Estado: ${details["estado"]}`);
+    if (details["plan"] && typeof details["plan"] === "string")
+      parts.push(`Plan: ${details["plan"]}`);
+    if (details["estado"] && typeof details["estado"] === "string")
+      parts.push(`Estado: ${details["estado"]}`);
     if (details["upgraded"] != null)
       parts.push(details["upgraded"] === true ? "Cambio de plan" : "Renovación");
     if (details["days"] != null) {
@@ -376,7 +381,12 @@ function buildFacts(
     .slice(0, full ? Infinity : 3)
     .map((k) => `${k}: ${details[k]}`);
   parts.push(...extras);
-  if (!full && Object.keys(details).filter((k) => !KNOWN_KEYS.has(k) && details[k] != null && details[k] !== "").length > 3)
+  if (
+    !full &&
+    Object.keys(details).filter(
+      (k) => !KNOWN_KEYS.has(k) && details[k] != null && details[k] !== "",
+    ).length > 3
+  )
     parts.push("+más");
   return parts;
 }
@@ -398,4 +408,3 @@ export function detailsFacts(
   if (!details) return [];
   return buildFacts(entityType, details, true).map((x) => x.replace(/\s{2,}/g, " ").trim());
 }
-

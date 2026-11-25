@@ -460,7 +460,11 @@ function AuthPage() {
         </p>
 
         <p className="text-center text-xs text-muted-foreground">
-          Al continuar aceptas nuestra{" "}
+          Al continuar aceptas nuestros{" "}
+          <Link to="/terminos" className="text-primary hover:underline">
+            Términos y Condiciones
+          </Link>{" "}
+          y la{" "}
           <Link to="/privacidad" className="text-primary hover:underline">
             Política de Privacidad
           </Link>
