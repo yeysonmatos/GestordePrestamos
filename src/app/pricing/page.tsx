@@ -112,7 +112,11 @@ export default async function PricingPage() {
         </p>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Al registrarte aceptas nuestra{' '}
+          Al registrarte aceptas nuestros{' '}
+          <Link href="/terminos" className="text-primary hover:underline">
+            Términos y Condiciones
+          </Link>{' '}
+          y la{' '}
           <Link href="/privacidad" className="text-primary hover:underline">
             Política de Privacidad
           </Link>

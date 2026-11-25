@@ -247,7 +247,11 @@ export default function LoginPage() {
           )}
 
         <p className="text-center text-xs text-muted-foreground">
-          Al continuar aceptas nuestra{' '}
+          Al continuar aceptas nuestros{' '}
+          <Link href="/terminos" className="text-primary hover:underline">
+            Términos y Condiciones
+          </Link>{' '}
+          y la{' '}
           <Link href="/privacidad" className="text-primary hover:underline">
             Política de Privacidad
           </Link>

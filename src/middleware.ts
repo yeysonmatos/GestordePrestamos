@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/')
-  const isPublic = pathname === '/login' || pathname === '/register' || pathname === '/pricing' || pathname === '/privacidad' || pathname === '/mfa-verify' || pathname.startsWith('/auth/') || pathname.startsWith('/_next/') || pathname.startsWith('/api/') || pathname === '/' || pathname === '/favicon.ico' || pathname.startsWith('/gp-icon.png') || pathname.startsWith('/gp-icon-opaque.png') || pathname.startsWith('/gp-icon-maskable.png') || pathname === '/apple-touch-icon.png' || pathname === '/manifest.json' || pathname === '/offline.html' || pathname === '/suspended'
+  const isPublic = pathname === '/login' || pathname === '/register' || pathname === '/pricing' || pathname === '/privacidad' || pathname === '/terminos' || pathname === '/mfa-verify' || pathname.startsWith('/auth/') || pathname.startsWith('/_next/') || pathname.startsWith('/api/') || pathname === '/' || pathname === '/favicon.ico' || pathname.startsWith('/gp-icon.png') || pathname.startsWith('/gp-icon-opaque.png') || pathname.startsWith('/gp-icon-maskable.png') || pathname === '/apple-touch-icon.png' || pathname === '/manifest.json' || pathname === '/offline.html' || pathname === '/suspended'
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()

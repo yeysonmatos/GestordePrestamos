@@ -144,7 +144,16 @@ export default function RegisterPage() {
               onChange={e => setAccepted(e.target.checked)}
               className="mt-0.5 h-4 w-4 accent-primary"
             />
-            Acepto los Términos y Condiciones
+            <span>
+              Acepto los{' '}
+              <Link href="/terminos" target="_blank" className="text-primary hover:underline">
+                Términos y Condiciones
+              </Link>{' '}
+              y la{' '}
+              <Link href="/privacidad" target="_blank" className="text-primary hover:underline">
+                Política de Privacidad
+              </Link>
+            </span>
           </label>
 
           <Turnstile key={captchaKey} onToken={setCaptchaToken} />
