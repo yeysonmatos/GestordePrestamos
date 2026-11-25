@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TurnstileCaptcha, type TurnstileHandle } from "@/components/auth/turnstile";
+import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, passwordError } from "@/lib/password";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -36,6 +37,8 @@ function PasswordField(props: {
   onChange: (v: string) => void;
   placeholder?: string;
   autoComplete?: string;
+  /** Contraseña nueva: aplica el mínimo de longitud (el login no). */
+  isNew?: boolean;
 }) {
   return (
     <div className="space-y-1.5">
@@ -47,11 +50,11 @@ function PasswordField(props: {
           id={props.id}
           type={props.show ? "text" : "password"}
           required
-          minLength={6}
+          minLength={props.isNew ? PASSWORD_MIN_LENGTH : undefined}
           autoComplete={props.autoComplete}
           value={props.value}
           onChange={(e) => props.onChange(e.target.value)}
-          placeholder={props.placeholder ?? "Mínimo 6 caracteres"}
+          placeholder={props.placeholder ?? (props.isNew ? PASSWORD_HINT : "Tu contraseña")}
           className={`${inputCls} pr-10`}
         />
         <button
@@ -171,7 +174,8 @@ function AuthPage() {
         toast.success("Revisa tu correo para restablecer tu contraseña.");
         cambiarModo("login");
       } else {
-        if (password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres.");
+        const pwdError = passwordError(password);
+        if (pwdError) throw new Error(pwdError);
         if (password !== confirm) throw new Error("Las contraseñas no coinciden.");
         if (!accepted) throw new Error("Debes aceptar los Términos y Condiciones.");
         const { data, error } = await supabase.auth.signUp({
@@ -326,6 +330,7 @@ function AuthPage() {
                 onToggle={() => setShowPassword((v) => !v)}
                 onChange={setPassword}
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
+                isNew={mode === "register"}
               />
             )}
 

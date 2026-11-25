@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PASSWORD_HINT, passwordError } from "@/lib/password";
 
 export const Route = createFileRoute("/auth_/reset-password")({
   head: () => ({
@@ -71,8 +72,9 @@ function ResetPasswordPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (pwd.length < 6) {
-      toast.error("La contraseña debe tener al menos 6 caracteres.");
+    const pwdError = passwordError(pwd);
+    if (pwdError) {
+      toast.error(pwdError);
       return;
     }
     if (pwd !== confirm) {
@@ -140,7 +142,7 @@ function ResetPasswordPage() {
                     className="h-11 rounded-lg pr-10"
                     value={pwd}
                     onChange={(e) => setPwd(e.target.value)}
-                    placeholder="Nueva contraseña"
+                    placeholder={PASSWORD_HINT}
                     autoComplete="new-password"
                   />
                   <button
