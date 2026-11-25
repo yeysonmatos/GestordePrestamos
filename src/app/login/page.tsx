@@ -8,6 +8,7 @@ import { Alert } from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import GoogleButton, { AuthDivider } from '@/components/auth/GoogleButton'
+import Turnstile, { captchaEnabled } from '@/components/auth/Turnstile'
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Cancelaste el acceso. Intenta de nuevo si quieres entrar con Google.',
@@ -32,6 +33,8 @@ export default function LoginPage() {
   const [mfaStep, setMfaStep] = useState(false)
   const [mfaCode, setMfaCode] = useState('')
   const [nextPath, setNextPath] = useState('/dashboard')
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaKey, setCaptchaKey] = useState(0)
   const supabase = createClient()
 
   useEffect(() => {
@@ -59,12 +62,20 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (captchaEnabled && !captchaToken) {
+      setError('Completa la verificación de seguridad.')
+      return
+    }
     setLoading(true)
     setError('')
     setMessage('')
+    const captcha = captchaToken ? { captchaToken } : {}
+    // Cada token sirve una sola vez: pedir uno nuevo para el próximo intento.
+    setCaptchaToken(null)
+    setCaptchaKey(k => k + 1)
 
     if (mode === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({ email, password, options: captcha })
       if (error) setError(error.message)
       else {
         // Verificar AAL: si la cuenta tiene MFA activa, pedir el código antes de redirigir
@@ -81,6 +92,7 @@ export default function LoginPage() {
     } else if (mode === 'reset') {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset-password`,
+        ...captcha,
       })
       if (error) setError(error.message)
       else setMessage('Revisa tu correo para restablecer tu contraseña.')
@@ -197,7 +209,9 @@ export default function LoginPage() {
             </button>
           )}
 
-          <Button type="submit" loading={loading} className="w-full">
+          <Turnstile key={captchaKey} onToken={setCaptchaToken} />
+
+          <Button type="submit" loading={loading} disabled={captchaEnabled && !captchaToken} className="w-full">
             {mode === 'login' ? 'Entrar' : 'Enviar enlace'}
           </Button>
 

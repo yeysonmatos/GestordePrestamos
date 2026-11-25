@@ -8,6 +8,7 @@ import { Alert } from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import GoogleButton, { AuthDivider } from '@/components/auth/GoogleButton'
+import Turnstile, { captchaEnabled } from '@/components/auth/Turnstile'
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('')
@@ -19,6 +20,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaKey, setCaptchaKey] = useState(0)
   const supabase = createClient()
 
   async function handleSubmit(e: React.FormEvent) {
@@ -42,12 +45,22 @@ export default function RegisterPage() {
       setLoading(false)
       return
     }
+    if (captchaEnabled && !captchaToken) {
+      setError('Completa la verificación de seguridad.')
+      setLoading(false)
+      return
+    }
+    const captcha = captchaToken ? { captchaToken } : {}
+    // Cada token sirve una sola vez: pedir uno nuevo para el próximo intento.
+    setCaptchaToken(null)
+    setCaptchaKey(k => k + 1)
 
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName },
+        ...captcha,
       },
     })
 
@@ -134,7 +147,9 @@ export default function RegisterPage() {
             Acepto los Términos y Condiciones
           </label>
 
-          <Button type="submit" loading={loading} className="w-full">
+          <Turnstile key={captchaKey} onToken={setCaptchaToken} />
+
+          <Button type="submit" loading={loading} disabled={captchaEnabled && !captchaToken} className="w-full">
             {loading ? 'Creando cuenta...' : 'Crear cuenta'}
           </Button>
 
