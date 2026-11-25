@@ -41,7 +41,7 @@ interface Props {
   todayPayments: { amount: number; payment_date: string }[]
   overdueInstallments: Installment[]
   upcomingInstallments: Installment[]
-  subscription: { status: string; ends_at: string | null; plan: { name: string } | null } | null
+  subscription: { status: string; starts_at?: string | null; ends_at: string | null; plan: { name: string } | null } | null
   readOnly: boolean
 }
 
@@ -69,6 +69,10 @@ export default function DashboardContent({
   const subExpired = !!subEndsAt && subEndsAt <= nowMs
   const subDaysLeft = subscription?.ends_at ? Math.max(0, daysBetweenDateStrings(getLocalDate(), subscription.ends_at.slice(0, 10))) : 0
   const subExpiringSoon = !!subEndsAt && !subExpired && subDaysLeft <= 3
+  // Cuenta creada sin período de prueba (ya se usó con ese correo o tope de
+  // registros por hora): la suscripción nace vencida, starts_at == ends_at.
+  const noTrial = subscription?.status === 'expired' && !!subscription.starts_at && !!subscription.ends_at
+    && Math.abs(new Date(subscription.ends_at).getTime() - new Date(subscription.starts_at).getTime()) < 60_000
 
   return (
     <div className="space-y-6">
@@ -79,10 +83,14 @@ export default function DashboardContent({
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-warning">
-              Tu período de prueba venció. Estás en modo lectura
+              {noTrial
+                ? 'Tu cuenta no tiene período de prueba disponible'
+                : 'Tu período de prueba venció. Estás en modo lectura'}
             </p>
             <p className="text-xs text-warning/80 mt-0.5">
-              Puedes ver, pero no crear, editar ni cobrar.
+              {noTrial
+                ? 'Elige un plan para empezar a registrar clientes y préstamos, o escríbenos desde Soporte si crees que es un error.'
+                : 'Puedes ver, pero no crear, editar ni cobrar.'}
             </p>
             <Link href="/account" className="text-xs font-medium text-warning underline mt-1 inline-block">
               Ver planes y renovar

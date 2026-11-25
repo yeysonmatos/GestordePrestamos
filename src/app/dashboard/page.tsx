@@ -15,7 +15,7 @@ export default async function DashboardPage() {
 
   const { data: subscription } = await supabase
     .from('subscriptions')
-    .select('status, ends_at, plan:plans(name)')
+    .select('status, starts_at, ends_at, plan:plans(name)')
     .eq('user_id', user?.id)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
         todayPayments={todayPayments || []}
         overdueInstallments={overdueInstallments || []}
         upcomingInstallments={upcomingInstallments || []}
-        subscription={subscription as { status: string; ends_at: string | null; plan: { name: string } | null } | null}
+        subscription={subscription as { status: string; starts_at: string | null; ends_at: string | null; plan: { name: string } | null } | null}
         readOnly={readOnly}
       />
     </MainLayout>

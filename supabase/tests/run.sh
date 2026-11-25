@@ -18,14 +18,18 @@ delete-preserve-payments email-notify fix-auth-users fix-rls-recursion onboardin
 plan-limits plan-limits-fix platform-config post-delete-review security-guards settings-defaults
 settings-personal soft-delete-loans sub-payment-target-plan audit-reconcile client-status-fix2
 security-hardening security-hardening2 backup-restore-transactional timezone-rd loan-stats
-trial-14-days plan-1a atomic-operations"
+trial-14-days plan-1a atomic-operations trial-abuse-guard"
 for pass in 1 2; do
   for f in $FILES; do $P -d $DB -f supabase/$f.sql >/dev/null 2>&1; done
 done
 # Errores esperados del entorno local: pg_cron y buckets de Storage no existen.
 
-OUT=$($P -d $DB -f supabase/tests/atomic-operations.test.sql 2>&1)
-echo "$OUT" | grep -E "^ *(T[0-9]+|FALLA|OK)" 
-FAILS=$(echo "$OUT" | grep -c "FALLA")
+FAILS=0
+for t in supabase/tests/*.test.sql; do
+  echo "== $(basename "$t")"
+  OUT=$($P -d $DB -f "$t" 2>&1)
+  echo "$OUT" | grep -E "^ *(OK|FALLA)"
+  FAILS=$((FAILS + $(echo "$OUT" | grep -c "FALLA")))
+done
 echo "Fallas: $FAILS"
 [ "$FAILS" -eq 0 ]
