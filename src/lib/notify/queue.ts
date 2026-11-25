@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { after } from 'next/server'
 import { sendViaSmtp } from './smtp'
 
 export interface EnqueueEmailInput {
@@ -53,13 +54,52 @@ export async function enqueueEmail(admin: SupabaseClient, input: EnqueueEmailInp
   return data.id as string
 }
 
-// Intenta enviar un mensaje una vez. Actualiza estado/attempts/next_retry_at.
-async function attemptSend(admin: SupabaseClient, id: string): Promise<void> {
-  const { data: row, error } = await admin.from('email_messages').select('*').eq('id', id).maybeSingle()
-  if (error || !row) return
-  if (row.status === 'sent' || row.status === 'failed') return
+// Un mensaje en 'sending' más tiempo que esto se considera abandonado (la
+// función que lo enviaba terminó antes de actualizarlo) y se puede reintentar.
+export const SENDING_LEASE_MS = 10 * 60 * 1000
 
-  await admin.from('email_messages').update({ status: 'sending' }).eq('id', id)
+// Un mensaje que no salió en este plazo ya no tiene sentido enviarlo (avisos de
+// vencimiento, recordatorios…): se marca 'failed' y el admin decide si reintentar.
+export const STALE_AFTER_MS = 48 * 60 * 60 * 1000
+
+/**
+ * Filtro PostgREST de mensajes que se pueden tomar para enviar ahora:
+ * en cola sin reintento programado o con reintento vencido, o en 'sending'
+ * con la reserva vencida (o sin reserva, como los atascados de versiones viejas).
+ */
+export function claimableFilter(nowIso: string): string {
+  const now = `"${nowIso}"`
+  return [
+    'and(status.eq.queued,next_retry_at.is.null)',
+    `and(status.eq.queued,next_retry_at.lte.${now})`,
+    'and(status.eq.sending,next_retry_at.is.null)',
+    `and(status.eq.sending,next_retry_at.lte.${now})`,
+  ].join(',')
+}
+
+// Reserva el mensaje de forma atómica: solo una ejecución lo puede enviar.
+// next_retry_at guarda hasta cuándo dura la reserva.
+async function claim(admin: SupabaseClient, id: string): Promise<boolean> {
+  const now = Date.now()
+  const { data, error } = await admin
+    .from('email_messages')
+    .update({ status: 'sending', next_retry_at: new Date(now + SENDING_LEASE_MS).toISOString() })
+    .eq('id', id)
+    .or(claimableFilter(new Date(now).toISOString()))
+    .select('id')
+  if (error) {
+    console.error('[notify/queue] claim error:', error.message)
+    return false
+  }
+  return (data?.length ?? 0) > 0
+}
+
+// Intenta enviar un mensaje una vez. Actualiza estado/attempts/next_retry_at.
+async function attemptSend(admin: SupabaseClient, id: string): Promise<'sent' | 'retry' | 'failed' | 'skipped'> {
+  if (!(await claim(admin, id))) return 'skipped'
+
+  const { data: row, error } = await admin.from('email_messages').select('*').eq('id', id).maybeSingle()
+  if (error || !row) return 'skipped'
 
   const result = await sendViaSmtp(admin, {
     to: row.recipient_email,
@@ -68,59 +108,95 @@ async function attemptSend(admin: SupabaseClient, id: string): Promise<void> {
   })
 
   if (result.ok) {
-    await admin.from('email_messages').update({ status: 'sent', sent_at: new Date().toISOString(), last_error: null }).eq('id', id)
-    return
+    await admin.from('email_messages').update({ status: 'sent', sent_at: new Date().toISOString(), next_retry_at: null, last_error: null }).eq('id', id)
+    return 'sent'
   }
 
   const attempts = (row.attempts || 0) + 1
   const patch: Record<string, unknown> = { attempts, last_error: result.error }
+  let outcome: 'retry' | 'failed'
 
   if (attempts >= (row.max_attempts || 3)) {
     patch.status = 'failed'
     patch.next_retry_at = null
+    outcome = 'failed'
   } else {
     patch.status = 'queued'
     patch.next_retry_at = new Date(Date.now() + retryDelayMs(attempts)).toISOString()
+    outcome = 'retry'
   }
 
   const { error: upErr } = await admin.from('email_messages').update(patch).eq('id', id)
   if (upErr) console.error('[notify/queue] update error:', upErr.message)
+  return outcome
 }
 
-// Encola + dispara un envío inmediato en segundo plano (fire-and-forget).
+// Ejecuta el trabajo cuando termine la respuesta (after de Next.js), para que
+// Vercel no corte el envío. Fuera de una petición (scripts, tests) lo corre ya.
+function runAfterResponse(task: () => Promise<unknown>): void {
+  const safe = () => task().catch(err => console.error('[notify/queue] background:', err))
+  try {
+    after(safe)
+  } catch {
+    void safe()
+  }
+}
+
+// Encola y envía al terminar la respuesta; de paso procesa pendientes de la cola.
 export async function enqueueAndSend(admin: SupabaseClient, input: EnqueueEmailInput): Promise<string | null> {
   const id = await enqueueEmail(admin, input)
   if (id) {
-    attemptSend(admin, id).catch(err => console.error('[notify/queue] attemptSend:', err))
+    runAfterResponse(async () => {
+      await attemptSend(admin, id)
+      await flushQueue(admin, 10)
+    })
   }
   return id
 }
 
-// Procesa la cola: todos los 'queued' con next_retry_at <= ahora (o null).
-export async function flushQueue(admin: SupabaseClient, max: number = 50): Promise<{ sent: number; failed: number; done: number }> {
-  const now = new Date().toISOString()
+// Marca como 'failed' los mensajes que llevan demasiado tiempo sin salir y nunca
+// tuvieron programación (next_retry_at nulo): los atascados de versiones viejas o
+// los que no se llegaron a tomar. Un reintento manual del admin programa
+// next_retry_at, así que no se vuelve a vencer de inmediato.
+export async function expireStale(admin: SupabaseClient): Promise<number> {
+  const cutoff = new Date(Date.now() - STALE_AFTER_MS).toISOString()
+  const { data, error } = await admin
+    .from('email_messages')
+    .update({ status: 'failed', next_retry_at: null, last_error: 'No se envió a tiempo (más de 48 h en cola). Reintenta desde el panel si aún aplica.' })
+    .in('status', ['queued', 'sending'])
+    .is('next_retry_at', null)
+    .lt('created_at', cutoff)
+    .select('id')
+  if (error) {
+    console.error('[notify/queue] expire error:', error.message)
+    return 0
+  }
+  return data?.length ?? 0
+}
+
+// Procesa la cola: vence los muy viejos y envía los que estén listos.
+export async function flushQueue(admin: SupabaseClient, max: number = 50): Promise<{ sent: number; failed: number; retry: number; expired: number }> {
+  const out = { sent: 0, failed: 0, retry: 0, expired: 0 }
+  out.expired = await expireStale(admin)
+
   const { data: rows, error } = await admin
     .from('email_messages')
     .select('id')
-    .in('status', ['queued', 'sending'])
-    .lte('next_retry_at', now)
+    .or(claimableFilter(new Date().toISOString()))
     .order('created_at', { ascending: true })
     .limit(max)
 
-  if (error || !rows || rows.length === 0) return { sent: 0, failed: 0, done: 0 }
-
-  const out = { sent: 0, failed: 0, done: 0 }
-  for (const row of rows) {
-    const before = await admin.from('email_messages').select('status').eq('id', row.id).maybeSingle()
-    if (before?.data?.status !== 'sent' && before?.data?.status !== 'failed') {
-      await attemptSend(admin, row.id)
-    }
+  if (error) {
+    console.error('[notify/queue] flush select error:', error.message)
+    return out
   }
-  const after = await admin.from('email_messages').select('status').in('id', rows.map(r => r.id))
-  const statuses = after.data || []
-  out.sent = statuses.filter(r => r.status === 'sent').length
-  out.failed = statuses.filter(r => r.status === 'failed').length
-  out.done = statuses.length
+
+  for (const row of rows || []) {
+    const result = await attemptSend(admin, row.id)
+    if (result === 'sent') out.sent++
+    else if (result === 'failed') out.failed++
+    else if (result === 'retry') out.retry++
+  }
   return out
 }
 
@@ -131,7 +207,7 @@ export async function retryFailed(admin: SupabaseClient, ids?: string[]): Promis
   const { data: rows, error } = await query
   if (error || !rows) return 0
   await admin.from('email_messages')
-    .update({ status: 'queued', attempts: 0, next_retry_at: null })
+    .update({ status: 'queued', attempts: 0, next_retry_at: new Date().toISOString(), last_error: null })
     .in('id', rows.map(r => r.id))
   return rows.length
 }

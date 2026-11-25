@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { isAdminUser } from '@/lib/admin'
+import { getLocalDate } from '@/lib/utils'
 
 export interface SubscriptionSnapshot {
   status: string | null
@@ -108,7 +109,7 @@ async function notifyTrialExpiredAsync(userId: string): Promise<void> {
     const { notifyTrialExpired } = await import('@/lib/notify/actions')
     await notifyTrialExpired(admin, {
       userId,
-      dedupeKey: `trial-expired-${userId}-${new Date().toISOString().slice(0, 10)}`,
+      dedupeKey: `trial-expired-${userId}-${getLocalDate()}`,
     })
   } catch (err) {
     console.error('[subscription-guard] notify error:', err)

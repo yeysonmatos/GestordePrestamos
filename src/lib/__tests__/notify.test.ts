@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { renderTemplate, TEMPLATE_KEYS } from '../notify/templates'
-import { retryDelayMs } from '../notify/queue'
+import { retryDelayMs, claimableFilter, SENDING_LEASE_MS, STALE_AFTER_MS } from '../notify/queue'
 import { isSmtpConfigured } from '../notify/smtp'
 
 describe('notify/templates', () => {
@@ -53,5 +53,33 @@ describe('notify/smtp isSmtpConfigured', () => {
     expect(isSmtpConfigured({ enabled: false, host: 'x', port: 587, username: 'a', pass: 'b', from_email: 'a@b.com' } as never)).toBe(false)
     expect(isSmtpConfigured({ enabled: true, host: '', port: 587, username: 'a', pass: 'b', from_email: 'a@b.com' } as never)).toBe(false)
     expect(isSmtpConfigured(null)).toBe(false)
+  })
+})
+describe('notify/queue claimableFilter', () => {
+  const now = '2026-11-25T14:30:00.000Z'
+  const filter = claimableFilter(now)
+
+  it('toma en cola sin reintento o con reintento vencido', () => {
+    expect(filter).toContain('and(status.eq.queued,next_retry_at.is.null)')
+    expect(filter).toContain(`and(status.eq.queued,next_retry_at.lte."${now}")`)
+  })
+
+  it('recupera mensajes atascados en sending (sin reserva o con reserva vencida)', () => {
+    expect(filter).toContain('and(status.eq.sending,next_retry_at.is.null)')
+    expect(filter).toContain(`and(status.eq.sending,next_retry_at.lte."${now}")`)
+  })
+
+  it('nunca toma enviados ni fallidos', () => {
+    expect(filter).not.toContain('sent')
+    expect(filter).not.toContain('failed')
+  })
+
+  it('cita la fecha (contiene : y .) como exige PostgREST', () => {
+    expect(filter).not.toMatch(/lte\.2026/)
+  })
+
+  it('la reserva dura menos que el primer reintento y el vencimiento es de 48 h', () => {
+    expect(SENDING_LEASE_MS).toBeLessThanOrEqual(retryDelayMs(1))
+    expect(STALE_AFTER_MS).toBe(48 * 60 * 60 * 1000)
   })
 })

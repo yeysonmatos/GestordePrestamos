@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { getUserSubscription } from '@/lib/subscription-guard'
+import { flushQueue } from '@/lib/notify/queue'
+import { getLocalDate } from '@/lib/utils'
 
 /**
  * Cron diario de notificación de pruebas vencidas:
@@ -35,7 +37,7 @@ async function handleCron(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: `Error cargando usuarios: ${usersError.message}` }, { status: 500 })
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = getLocalDate()
   let notified = 0
   const errors: string[] = []
 
@@ -57,5 +59,8 @@ async function handleCron(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ ok: true, notified, users: (appUsers || []).length, errors })
+  // Reintentos de la cola de correos (pendientes, atascados en 'sending' y vencidos).
+  const queue = await flushQueue(admin, 100)
+
+  return NextResponse.json({ ok: true, notified, users: (appUsers || []).length, queue, errors })
 }

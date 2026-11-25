@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { requireAdminApi } from '@/lib/admin'
-import { retryFailed } from '@/lib/notify/queue'
+import { retryFailed, flushQueue } from '@/lib/notify/queue'
 
 export async function GET(request: NextRequest) {
   const guard = await requireAdminApi(request)
@@ -55,6 +55,10 @@ export async function POST(request: NextRequest) {
   const ids = Array.isArray(body.ids) ? body.ids.filter((x: unknown) => typeof x === 'string') : undefined
 
   const count = await retryFailed(adminClient, ids?.length ? ids : undefined)
+  // Enviar al terminar la respuesta, sin esperar al cron diario.
+  if (count > 0) {
+    after(() => flushQueue(adminClient, 50).catch(err => console.error('[admin/emails] flush:', err)))
+  }
   return NextResponse.json({ ok: true, requeued: count }, supabaseResponse)
 }
 
