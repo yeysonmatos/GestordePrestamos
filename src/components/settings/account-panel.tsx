@@ -34,6 +34,7 @@ import MfaSetup from "@/components/admin/MfaSetup";
 import { useSubscription, useSubscriptionPayments } from "@/lib/db";
 import { daysBetween, formatDate, rd, todaySD } from "@/lib/finance";
 import { notifyAdminUpgradeRequest } from "@/lib/admin-fns";
+import { PASSWORD_HINT, passwordError } from "@/lib/password";
 
 const STATUS_META: Record<
   string,
@@ -201,8 +202,9 @@ export function AccountPanel() {
   }
 
   async function cambiarPassword() {
-    if (pwd.length < 6) {
-      toast.error("La nueva contraseña debe tener al menos 6 caracteres.");
+    const pwdError = passwordError(pwd);
+    if (pwdError) {
+      toast.error(pwdError);
       return;
     }
     if (pwd !== pwd2) {
@@ -349,7 +351,7 @@ export function AccountPanel() {
                 className="h-11"
                 value={pwd}
                 onChange={(e) => setPwd(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder={PASSWORD_HINT}
               />
             </div>
             <div className="space-y-1.5">
