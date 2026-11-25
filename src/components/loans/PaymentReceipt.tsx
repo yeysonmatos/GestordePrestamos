@@ -34,11 +34,6 @@ export default function PaymentReceipt({ payment, loan, settings, previousBalanc
 
       <div className="text-center mb-4">
         <p className="text-3xl font-bold text-foreground">{formatCurrency(payment.amount)}</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {Number(payment.capital_amount) > 0 && <span>C: {formatCurrency(payment.capital_amount)}</span>}
-          {Number(payment.capital_amount) > 0 && Number(payment.interest_amount) > 0 && <span>  </span>}
-          {Number(payment.interest_amount) > 0 && <span>I: {formatCurrency(payment.interest_amount)}</span>}
-        </p>
         <p className="text-sm text-muted-foreground mt-1">
           {typeLabel || (payment.type === 'installment' ? 'Cuota' : payment.type === 'capital_abono' ? 'Abono a capital' : payment.type === 'liquidation' ? 'Liquidación' : 'Pago')}
           {payment.method === 'cash' ? ' · Efectivo' : payment.method === 'transfer' ? ' · Transferencia' : payment.method === 'deposit' ? ' · Depósito' : ''}
@@ -67,18 +62,14 @@ export default function PaymentReceipt({ payment, loan, settings, previousBalanc
             <span className="font-medium text-foreground">{formatCurrency(previousBalance)}</span>
           </div>
         )}
-        {hasMora && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Capital</span>
-            <span className="font-medium text-foreground">{formatCurrency(payment.capital_amount)}</span>
-          </div>
-        )}
-        {hasMora && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Interés</span>
-            <span className="font-medium text-foreground">{formatCurrency(payment.interest_amount)}</span>
-          </div>
-        )}
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Capital</span>
+          <span className="font-medium text-foreground">{formatCurrency(Number(payment.capital_amount) || 0)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Interés</span>
+          <span className="font-medium text-foreground">{formatCurrency(Number(payment.interest_amount) || 0)}</span>
+        </div>
         {hasMora && (
           <div className="flex justify-between text-destructive">
             <span>Mora</span>

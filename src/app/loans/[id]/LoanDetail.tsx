@@ -1185,28 +1185,30 @@ export default function LoanDetail({ loan: initialLoan, installments: initialIns
                         <span>Total pagado</span>
                         <span>{formatCurrency(successPayments.reduce((s, p) => s + Number(p.amount), 0))}</span>
                       </div>
-                      {successPayment && (
-                        <>
-                          {Number(successPayment.capital_amount) > 0 && (
+                      {(() => {
+                        // Desglose sumado de todas las cuotas cubiertas por el pago
+                        const sum = (key: 'capital_amount' | 'interest_amount' | 'late_amount') =>
+                          successPayments.reduce((s, p) => s + (Number(p[key]) || 0), 0)
+                        const totalMora = sum('late_amount')
+                        return (
+                          <>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Capital</span>
-                              <span className="font-medium text-foreground">{formatCurrency(successPayment.capital_amount)}</span>
+                              <span className="font-medium text-foreground">{formatCurrency(sum('capital_amount'))}</span>
                             </div>
-                          )}
-                          {Number(successPayment.interest_amount) > 0 && (
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Interés</span>
-                              <span className="font-medium text-foreground">{formatCurrency(successPayment.interest_amount)}</span>
+                              <span className="font-medium text-foreground">{formatCurrency(sum('interest_amount'))}</span>
                             </div>
-                          )}
-                          {Number(successPayment.late_amount) > 0 && (
-                            <div className="flex justify-between text-destructive">
-                              <span>Mora</span>
-                              <span className="font-medium">{formatCurrency(successPayment.late_amount)}</span>
-                            </div>
-                          )}
-                        </>
-                      )}
+                            {totalMora > 0 && (
+                              <div className="flex justify-between text-destructive">
+                                <span>Mora</span>
+                                <span className="font-medium">{formatCurrency(totalMora)}</span>
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                       <div className="flex justify-between font-bold text-foreground border-t border-border pt-2">
                         <span>Nuevo balance</span>
                         <span>{formatCurrency(loan.remaining_amount)}</span>
