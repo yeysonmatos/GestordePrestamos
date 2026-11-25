@@ -773,12 +773,24 @@ Inventario completo de los puntos auditados: Dashboard (8 tarjetas vía `get_loa
 - [x] **Pruebas SQL**: `bash supabase/tests/run.sh` (PostgreSQL local + `supabase/tests/supabase-stub.sql`) — 34/34 OK.
 - [x] Verificado: tsc OK, vitest 54/54, build OK.
 
+### Sesión 2 (25 Nov) — pendientes del backlog
+- [x] **Recibo**: desglose Capital/Interés siempre visible (`PaymentReceipt.tsx`; antes solo con mora). El recibo multi-cuota de `LoanDetail` sumaba solo la última cuota → ahora suma todas.
+- [x] **`/terminos`**: página pública (12 secciones; incluye prueba de 14 días, modo lectura, responsabilidad del prestamista, prohibición de cuentas en serie, ley RD). Plantilla compartida `src/components/legal/LegalPage.tsx` (también usada por `/privacidad`). Enlaces en registro (casilla), login y planes. `/terminos` en rutas públicas del proxy. **Texto redactado por Claude: conviene revisión legal.**
+- [x] **Cola de correos** (`src/lib/notify/queue.ts`): causas de los 41 atascados → `flushQueue` no se llamaba nunca; filtraba `next_retry_at <= ahora` y los nuevos tienen NULL; envío fire-and-forget cortado por Vercel (quedaban en `sending`). Ahora: reserva atómica (UPDATE condicional, `next_retry_at` = reserva de 10 min), envío con `after()`, mensajes nunca programados con >48 h → `failed` con motivo (el admin puede reintentar), cron diario `subscription-notify` procesa la cola, reintento desde el panel envía enseguida. Dedupe con fecha RD.
+- [x] **Abuso de trials** (`supabase/trial-abuse-guard.sql`, PENDIENTE DE APLICAR): `trial_grants` (correo normalizado; Gmail sin puntos ni +sufijo) → una prueba por correo aunque se borre la cuenta; tope de 20 pruebas/hora en la plataforma. Sin prueba = cuenta creada en modo lectura (aviso propio en Dashboard). Un error del freno nunca bloquea el registro. Backfill de usuarios existentes.
+- [x] **`src/middleware.ts` → `src/proxy.ts`** (función `proxy`), según guía de Next 16. Verificado: rutas protegidas → 307 a `/login`, públicas 200.
+- [x] Verificado: tsc OK, vitest 59/59, build OK, `bash supabase/tests/run.sh` 48/48.
+
 ### Orden de despliegue (importante)
-1. Aplicar `supabase/atomic-operations.sql` en producción **antes** de desplegar el código (la UI nueva llama a las RPC nuevas).
+1. Aplicar en producción, **antes** de desplegar el código:
+   - `node scripts/exec-atomic-operations.mjs` (la UI nueva llama a sus RPC)
+   - `node scripts/exec-trial-abuse-guard.mjs`
 2. Desplegar.
 3. CAPTCHA: crear sitio en Cloudflare Turnstile → `NEXT_PUBLIC_TURNSTILE_SITE_KEY` en Vercel → redeploy → recién entonces activar CAPTCHA en Supabase con la clave secreta (si se activa antes, el login con contraseña falla).
+4. Tras el deploy, el primer cron diario de correos marcará como `failed` los 41 mensajes viejos atascados; reintentar desde el panel solo los que aún apliquen.
 
-### Pendiente
-- [ ] Rotar credenciales (Google OAuth secret, `sbp_…`, `vcp_…`) — lo hace el usuario.
-- [ ] Abuso de trials vía Google OAuth (CAPTCHA no lo cubre).
-- [ ] Middleware → `proxy` (Next 16 lo marcó como deprecado; sigue funcionando).
+### Pendiente (usuario)
+- [ ] Rotar credenciales (Google OAuth secret, `sbp_…`, `vcp_…`).
+- [ ] Google OAuth: publicar app, verificar dominio en Search Console, decidir logo.
+- [ ] Correo de recuperación: verificar dominio en Resend o arreglar app password de Gmail (hoy 2 correos/hora).
+- [ ] Revisión legal de `/terminos`.
