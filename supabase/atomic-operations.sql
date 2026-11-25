@@ -50,7 +50,7 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  -- Misma regla que middleware.ts / subscription-guard.ts: suscripción más
+  -- Misma regla que src/proxy.ts / subscription-guard.ts: suscripción más
   -- reciente; sin suscripción no se bloquea.
   SELECT status, ends_at INTO v_sub
   FROM subscriptions

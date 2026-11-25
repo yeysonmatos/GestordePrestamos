@@ -12,7 +12,7 @@ export interface SubscriptionSnapshot {
 }
 
 // Lee la suscripción más reciente del usuario (status, fin, plan).
-// Mismo patrón que middleware.ts:136 y dashboard/page.tsx.
+// Mismo patrón que src/proxy.ts y dashboard/page.tsx.
 export async function getUserSubscription(supabase: SupabaseClient, userId: string): Promise<SubscriptionSnapshot> {
   const fallback: SubscriptionSnapshot = { status: null, ends_at: null, planName: null, isTrial: false }
   try {
@@ -38,7 +38,7 @@ export async function getUserSubscription(supabase: SupabaseClient, userId: stri
 
 // Cualquier plan vencido/cancelado (Trial, Básico o Pro) entra en modo lectura:
 // puede leer pero no escribir. Las escrituras se bloquean en el API guard
-// (requireActiveSubscriptionApi) y en el middleware para las rutas de escritura.
+// (requireActiveSubscriptionApi) y en src/proxy.ts para las rutas de escritura.
 export function isExpiredForReadOnly(sub: SubscriptionSnapshot): boolean {
   if (sub.status === 'expired' || sub.status === 'cancelled') return true
   if (sub.ends_at) {
