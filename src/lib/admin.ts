@@ -1,7 +1,7 @@
 ﻿import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { todaySD } from "@/lib/finance";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import {
   dashboardData,
   auditList,
@@ -311,7 +311,7 @@ export async function writeAudit(opts: {
     action: opts.action,
     entity_type: opts.entityType,
     entity_id: opts.entityId ?? null,
-    details: (opts.details ?? null) as any,
+    details: (opts.details ?? null) as Json,
   });
   if (error) throw new Error(error.message);
 }
@@ -385,7 +385,7 @@ export async function rejectPayment(paymentId: string) {
     .eq("id", paymentId)
     .single();
   if (pErr) throw new Error(pErr.message);
-  if ((pay as any).status !== "pending") throw new Error("Solo se rechazan pagos pendientes");
+  if (pay.status !== "pending") throw new Error("Solo se rechazan pagos pendientes");
 
   const { error } = await supabase
     .from("subscription_payments")
@@ -407,16 +407,16 @@ export async function savePlan(
 ) {
   const price = Number(plan.price);
   if (Number.isNaN(price) || price < 0) throw new Error("Precio inválido");
-  const payload: any = {
+  const payload: Database["public"]["Tables"]["plans"]["Insert"] = {
     name: plan.name,
     price,
     billing_cycle: plan.billing_cycle ?? "monthly",
     currency: "DOP",
     is_active: plan.is_active !== false,
-    description: (plan as any).description ?? null,
-    features: (plan as any).features ?? null,
-    max_clients: (plan as any).max_clients ?? null,
-    max_loans: (plan as any).max_loans ?? null,
+    description: plan.description ?? null,
+    features: plan.features ?? null,
+    max_clients: plan.max_clients ?? null,
+    max_loans: plan.max_loans ?? null,
   };
 
   if (plan.id) {
@@ -441,7 +441,7 @@ export async function setUserAccess(userId: string, blocked: boolean) {
     action: blocked ? "user.blocked" : "user.unblocked",
     entityType: "user",
     entityId: userId,
-    details: { status: blocked ? "blocked" : "active" } as any,
+    details: { status: blocked ? "blocked" : "active" },
   });
 }
 

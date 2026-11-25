@@ -7,6 +7,9 @@ set -u
 cd "$(dirname "$0")/../.."
 export PGHOST="${PGHOST:-/var/tmp/pgtest}" PGPORT="${PGPORT:-5499}" PGUSER="${PGUSER:-postgres}"
 DB=gp_test
+if ! psql -q -X -c "select 1" postgres >/dev/null 2>&1; then
+  echo "No hay conexión a PostgreSQL en $PGHOST:$PGPORT"; echo "Fallas: 1"; exit 1
+fi
 P="psql -q -X"
 $P -c "DROP DATABASE IF EXISTS $DB" -c "CREATE DATABASE $DB" postgres >/dev/null
 $P -d $DB -f supabase/tests/supabase-stub.sql >/dev/null 2>&1
@@ -20,7 +23,7 @@ settings-personal soft-delete-loans sub-payment-target-plan audit-reconcile clie
 security-hardening security-hardening2 backup-restore-transactional timezone-rd loan-stats
 trial-14-days plan-1a admin-full plan-max-loans subscriber-support save-loan-transactional
 dashboard-summary loan-balances reports-cartera system-checks expired-subs
-atomic-operations trial-abuse-guard revoke-public-payment-rpcs"
+atomic-operations trial-abuse-guard revoke-public-payment-rpcs db-cleanup"
 for pass in 1 2; do
   for f in $FILES; do $P -d $DB -f supabase/$f.sql >/dev/null 2>&1; done
 done
