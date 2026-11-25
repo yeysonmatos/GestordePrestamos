@@ -83,10 +83,7 @@ function AdminPlans() {
       billing_cycle: p.billing_cycle,
       description: p.description ?? "",
       max_clients: p.max_clients != null && p.max_clients > 0 ? String(p.max_clients) : "",
-      max_loans:
-        (p as any).max_loans != null && (p as any).max_loans > 0
-          ? String((p as any).max_loans)
-          : "",
+      max_loans: p.max_loans != null && p.max_loans > 0 ? String(p.max_loans) : "",
       features: toFeatures(p.features).join("\n"),
       is_active: p.is_active,
     });
@@ -192,8 +189,8 @@ function AdminPlans() {
                     ? `Máximo ${plan.max_clients} deudores`
                     : "Deudores ilimitados"}
                   {" · "}
-                  {(plan as any).max_loans != null && (plan as any).max_loans > 0
-                    ? `Máximo ${(plan as any).max_loans} préstamos`
+                  {plan.max_loans != null && plan.max_loans > 0
+                    ? `Máximo ${plan.max_loans} préstamos`
                     : "Préstamos ilimitados"}
                   {" · "}
                   {plan.clients ?? 0} suscriptor{(plan.clients ?? 0) !== 1 ? "es" : ""}

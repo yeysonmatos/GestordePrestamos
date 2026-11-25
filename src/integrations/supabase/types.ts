@@ -617,6 +617,7 @@ export type Database = {
           id: string
           is_active: boolean
           max_clients: number | null
+          max_loans: number | null
           name: string
           price: number
         }
@@ -629,6 +630,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           max_clients?: number | null
+          max_loans?: number | null
           name: string
           price?: number
         }
@@ -641,6 +643,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           max_clients?: number | null
+          max_loans?: number | null
           name?: string
           price?: number
         }
