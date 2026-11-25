@@ -223,7 +223,7 @@ export default function AdminEmails() {
                 </span>
               </div>
               <div className="rounded-lg border border-border overflow-hidden">
-                <iframe title="preview" srcDoc={preview.html_body} className="w-full h-[420px] bg-white" />
+                <iframe title="preview" sandbox="" srcDoc={preview.html_body} className="w-full h-[420px] bg-white" />
               </div>
               <p className="text-xs text-muted-foreground">
                 Evento: {preview.event_type} · Plantilla: {preview.template_key}
