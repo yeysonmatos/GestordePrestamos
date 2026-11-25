@@ -3,6 +3,7 @@ import { createRouteHandlerClient } from '@/lib/supabase-route'
 import { logAuditEvent } from '@/lib/audit'
 import { computeLateStatus } from '@/lib/loan-status'
 import { requireActiveSubscriptionApi } from '@/lib/subscription-guard'
+import { saveLoanWithSchedule, type ScheduleRow } from '@/lib/loan-ops'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -53,8 +54,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     updateData.payment_day = parseInt(firstPaymentDate.split('-')[2]) || null
   }
 
+  // null = no tocar el cronograma; [] = dejarlo vacío (préstamo abierto)
+  let newSchedule: ScheduleRow[] | null = null
+
   if (needsRecalculation) {
-    await supabase.from('installments').delete().eq('loan_id', id)
 
     const amount = parseFloat(body.amount ?? existingLoan.amount)
     const rate = parseFloat(body.interest_rate ?? existingLoan.interest_rate)
@@ -79,21 +82,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     updateData.remaining_amount = openEnded ? amount : schedule.total_amount
     updateData.installments = numInstallments
 
+    newSchedule = []
     if (!openEnded && schedule.installments.length > 0) {
-      const installmentsData = schedule.installments.map((inst: any) => ({
-        loan_id: id,
-        client_id: existingLoan.client_id,
-        number: inst.number,
-        amount: inst.amount,
-        capital: inst.capital,
-        interest: inst.interest,
-        balance: inst.balance,
-        due_date: inst.due_date,
-      }))
-      const { error: instErr } = await supabase.from('installments').insert(installmentsData)
-      if (instErr) return NextResponse.json({ error: instErr.message }, { status: 500 })
+      newSchedule = schedule.installments
 
-      const late = computeLateStatus(schedule.installments.map((inst: any) => inst.due_date))
+      const late = computeLateStatus(schedule.installments.map(inst => inst.due_date))
       if (late) {
         updateData.status = late.status
         updateData.late_days = late.lateDays
@@ -101,11 +94,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
   }
 
+  // Préstamo + cronograma en una sola transacción: si algo falla no se pierde
+  // el cronograma anterior. La función vuelve a verificar que no haya pagos.
+  try {
+    await saveLoanWithSchedule(supabase, id, updateData, newSchedule)
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Error al guardar el préstamo' }, { status: 400, headers: supabaseResponse.headers })
+  }
+
   const { data, error } = await supabase
     .from('loans')
-    .update(updateData)
-    .eq('id', id)
     .select('*, client:clients(*)')
+    .eq('id', id)
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -137,8 +137,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       details: { loan_id: existingLoan.loan_id, client_name: clientName, ...changes, __previous: previous },
     })
   }
-
-  await supabase.rpc('update_client_stats', { p_client_id: existingLoan.client_id })
 
   return NextResponse.json(data, supabaseResponse)
 }

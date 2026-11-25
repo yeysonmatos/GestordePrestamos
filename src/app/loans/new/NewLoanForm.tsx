@@ -14,6 +14,7 @@ import { calculateLoan, firstPaymentDateFor } from '@/lib/calculations'
 import { computeLateStatus } from '@/lib/loan-status'
 import { FREQUENCIES } from '@/types'
 import type { Client, Setting, Loan } from '@/types'
+import { saveLoanWithSchedule } from '@/lib/loan-ops'
 
 interface Props {
   clients: Client[]
@@ -162,11 +163,14 @@ export default function NewLoanForm({ clients, settings, selectedClientId, initi
     const prefix = settingsData?.loan_id_prefix || 'P'
     const loanIdNew = `${prefix}${String(Date.now()).slice(-6)}`
 
-    const { data: loan, error: err } = await supabase
-      .from('loans')
-      .insert({
+    const hasSchedule = !form.open_ended && schedule.installments.length > 0
+    const late = hasSchedule ? computeLateStatus(schedule.installments.map(i => i.due_date)) : null
+
+    // Préstamo + cronograma en una sola transacción (save_loan_with_schedule).
+    let loan
+    try {
+      loan = await saveLoanWithSchedule(supabase, null, {
         loan_id: loanIdNew,
-        user_id: user.id,
         client_id: form.client_id,
         amount,
         interest_type: form.interest_type,
@@ -184,40 +188,14 @@ export default function NewLoanForm({ clients, settings, selectedClientId, initi
         first_payment_date: form.first_payment_date,
         guarantee: form.guarantee || null,
         notes: form.notes || null,
-      })
-      .select()
-      .single()
-
-    if (err) { setError(err.message); setLoading(false); return }
-
-    if (!form.open_ended && schedule.installments.length > 0) {
-      const installmentsData = schedule.installments.map(inst => ({
-        loan_id: loan.id,
-        client_id: form.client_id,
-        number: inst.number,
-        amount: inst.amount,
-        capital: inst.capital,
-        interest: inst.interest,
-        balance: inst.balance,
-        due_date: inst.due_date,
-      }))
-
-      const { error: instErr } = await supabase
-        .from('installments')
-        .insert(installmentsData)
-
-      if (instErr) { setError(instErr.message); setLoading(false); return }
-
-      const late = computeLateStatus(schedule.installments.map(i => i.due_date))
-      if (late) {
-        await supabase.from('loans').update({
-          status: late.status,
-          late_days: late.lateDays,
-        }).eq('id', loan.id)
-      }
+        ...(late ? { status: late.status, late_days: late.lateDays } : {}),
+      }, hasSchedule ? schedule.installments : null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al crear el préstamo')
+      setLoading(false)
+      return
     }
 
-    await supabase.rpc('update_client_stats', { p_client_id: form.client_id })
     const clientName = clients.find(c => c.id === form.client_id)?.name
     logAuditEvent(supabase, { userId: user.id, action: 'loan.created', entityType: 'loan', entityId: loan.id, details: { loan_id: loanIdNew, client_id: form.client_id, client_name: clientName, amount, amortization_type: form.amortization_type, open_ended: form.open_ended } })
 

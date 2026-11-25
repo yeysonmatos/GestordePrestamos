@@ -1,8 +1,11 @@
 import type { LoanHandlerInput, LoanRebalanceStrategies } from './loan-handler.types'
 import type { Loan, Payment } from '@/types'
 import { calculateLateDays, calculateLateAmount, calculateProportionalInterest } from '@/lib/calculations'
-import { updateLoanAfterPayment, recalculateInstallment } from '@/lib/payments'
+import { applyLoanOperation, type LoanOperation } from '@/lib/loan-ops'
+import { daysBetweenDateStrings } from '@/lib/utils'
 import { logAuditEvent } from '@/lib/audit'
+
+const errorMessage = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback
 
 export function useSharedLoanHandlers(input: LoanHandlerInput, strategies: LoanRebalanceStrategies) {
   const { state, setters, services } = input
@@ -17,15 +20,23 @@ export function useSharedLoanHandlers(input: LoanHandlerInput, strategies: LoanR
       setters.setPaymentError('')
       const amount = parseFloat(state.paymentAmount)
       if (isNaN(amount) || amount <= 0) { setters.setPaymentError('Monto inválido'); setters.setLoading(false); return }
-      const { data: payment, error } = await supabase.from('payments').insert({
-        loan_id: state.loan.id, client_id: state.loan.client_id, user_id: userId,
-        amount, capital_amount: 0, interest_amount: amount,
-        payment_date: state.paymentDate, method: state.paymentMethod,
-        notes: state.paymentNotes || null, type: 'installment',
-      }).select().single()
-      if (error) { setters.setPaymentError('Error al registrar pago: ' + error.message); setters.setLoading(false); return }
+      let payment: Payment
+      try {
+        const result = await applyLoanOperation(supabase, state.loan.id, {
+          payment: {
+            amount, capital_amount: 0, interest_amount: amount,
+            payment_date: state.paymentDate, method: state.paymentMethod,
+            notes: state.paymentNotes || null, type: 'installment',
+          },
+        })
+        payment = result.payment as Payment
+        setters.setLoan(prev => ({ ...prev, ...result.loan }))
+      } catch (err) {
+        setters.setPaymentError('Error al registrar pago: ' + errorMessage(err, 'desconocido'))
+        setters.setLoading(false)
+        return
+      }
       logAuditEvent(supabase, { userId, action: 'payment.recorded', entityType: 'payment', entityId: payment.id, details: { loan_id: state.loan.loan_id, client_name: state.loan.client?.name, amount, type: 'interest_only' } })
-      await updateLoanAfterPayment(supabase, state.loan.id, state.loan.client_id)
       setters.setPayments(prev => [payment, ...prev])
       setters.setSuccessPayment(payment)
       setters.setSuccessPayments([payment])
@@ -112,6 +123,7 @@ export function useSharedLoanHandlers(input: LoanHandlerInput, strategies: LoanR
     if (state.loading) return
     if (!userId) return
     setters.setLoading(true)
+    setters.setPaymentError('')
     const paidCapital = state.payments.filter(p => p.status === 'paid' && Number(p.capital_amount) > 0).reduce((s, p) => s + Number(p.capital_amount), 0)
     const capRemaining = Math.max(0, Number(state.loan.amount) - paidCapital)
     const graceDays = settings?.grace_days || 0
@@ -129,36 +141,36 @@ export function useSharedLoanHandlers(input: LoanHandlerInput, strategies: LoanR
     }
     const lastPayment = state.payments.filter(p => p.status === 'paid').sort((a, b) => b.payment_date.localeCompare(a.payment_date))[0]
     const lastDate = lastPayment?.payment_date || state.loan.first_payment_date
-    const days = Math.max(0, Math.floor((new Date().getTime() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24)))
+    // Días calendario entre el último pago y la fecha de la liquidación (fechas
+    // 'yyyy-MM-dd' en hora RD, sin depender de la zona horaria del navegador).
+    const days = Math.max(0, daysBetweenDateStrings(String(lastDate).slice(0, 10), state.paymentDate))
     const monthlyRate = state.loan.interest_type === 'percentage' ? state.loan.interest_rate / 100 : 0
     const propInterest = monthlyRate > 0 ? calculateProportionalInterest(capRemaining, monthlyRate, days) : 0
     const total = capRemaining + propInterest + totalMora
-    const { data: payment, error } = await supabase.from('payments').insert({
-      loan_id: state.loan.id, client_id: state.loan.client_id, user_id: userId,
-      amount: total, capital_amount: capRemaining, interest_amount: propInterest, late_amount: totalMora,
-      payment_date: state.paymentDate, method: state.paymentMethod,
-      notes: state.paymentNotes || 'Liquidación total', type: 'liquidation',
-    }).select().single()
-    if (error) { setters.setPaymentError('Error al liquidar: ' + error.message); setters.setLoading(false); return }
-    logAuditEvent(supabase, { userId, action: 'loan.liquidated', entityType: 'loan', entityId: state.loan.id, details: { loan_id: state.loan.loan_id, client_id: state.loan.client_id, client_name: state.loan.client?.name, amount: total, capital_amount: capRemaining, interest_amount: propInterest, late_amount: totalMora } })
-    for (const inst of state.installments) {
-      if (inst.status !== 'paid') {
-        await supabase.from('installments').update({ status: 'paid', paid_amount: inst.amount, paid_late_amount: inst.late_amount || 0, paid_at: state.paymentDate }).eq('id', inst.id)
-      }
+
+    let result
+    try {
+      result = await applyLoanOperation(supabase, state.loan.id, {
+        payment: {
+          amount: total, capital_amount: capRemaining, interest_amount: propInterest, late_amount: totalMora,
+          payment_date: state.paymentDate, method: state.paymentMethod,
+          notes: state.paymentNotes || 'Liquidación total', type: 'liquidation',
+        },
+        installment_writes: state.installments
+          .filter(inst => inst.status !== 'paid')
+          .map(inst => ({ key: 'id' as const, value: inst.id, data: { status: 'paid' as const, paid_amount: inst.amount, paid_late_amount: inst.late_amount || 0, paid_at: state.paymentDate } })),
+        paid_amount_from_payments: true,
+      })
+    } catch (err) {
+      setters.setPaymentError('Error al liquidar: ' + errorMessage(err, 'desconocido'))
+      setters.setLoading(false)
+      return
     }
-    const loanUpdates = await updateLoanAfterPayment(supabase, state.loan.id, state.loan.client_id)
-    const { data: liquidatedPayments } = await supabase.from('payments').select('amount').eq('loan_id', state.loan.id).eq('status', 'paid')
-    const totalReceived = liquidatedPayments?.reduce((s, p) => s + Number(p.amount), 0) || 0
-    await supabase.from('loans').update({ paid_amount: totalReceived }).eq('id', state.loan.id)
+    const payment = result.payment as Payment
+    logAuditEvent(supabase, { userId, action: 'loan.liquidated', entityType: 'loan', entityId: state.loan.id, details: { loan_id: state.loan.loan_id, client_id: state.loan.client_id, client_name: state.loan.client?.name, amount: total, capital_amount: capRemaining, interest_amount: propInterest, late_amount: totalMora } })
     setters.setPayments(prev => [payment, ...prev])
-    setters.setLoan(prev => ({
-      ...prev,
-      status: 'paid',
-      paid_amount: totalReceived,
-      remaining_amount: Math.max(0, Number(loanUpdates.remaining_amount ?? prev.remaining_amount)),
-      progress: 100,
-    }))
-    setters.setInstallments(prev => prev.map(i => i.status !== 'paid' ? { ...i, status: 'paid', paid_amount: i.amount, paid_at: state.paymentDate } : i))
+    setters.setLoan(prev => ({ ...prev, ...result.loan }))
+    setters.setInstallments(result.installments)
     setters.setSuccessPayment(payment)
     setters.setSuccessPayments([payment])
     setters.setSuccessCoveredCount(1)
@@ -175,43 +187,34 @@ export function useSharedLoanHandlers(input: LoanHandlerInput, strategies: LoanR
     const amount = parseFloat(state.capitalAbonoAmount)
     if (isNaN(amount) || amount <= 0) return
     setters.setLoading(true)
+    setters.setPaymentError('')
     const { data: existingCapitalPayments } = await supabase.from('payments').select('capital_amount').eq('loan_id', state.loan.id).eq('status', 'paid')
     const existingCapitalPaid = existingCapitalPayments?.reduce((s, p) => s + Number(p.capital_amount), 0) || 0
-    const { data: payment, error } = await supabase.from('payments').insert({
-      loan_id: state.loan.id, client_id: state.loan.client_id, user_id: userId,
-      amount, capital_amount: amount, interest_amount: 0,
-      payment_date: state.paymentDate, method: state.paymentMethod,
-      notes: state.paymentNotes || null, type: 'capital_abono',
-    }).select().single()
-    if (error) { setters.setPaymentError('Error al registrar abono: ' + error.message); setters.setLoading(false); return }
-    logAuditEvent(supabase, { userId, action: 'capital_abono', entityType: 'payment', entityId: payment.id, details: { loan_id: state.loan.loan_id, client_name: state.loan.client?.name, amount } })
 
-    const result = await rebalanceCapitalAbono({
-      amount, existingCapitalPaid, loan: state.loan, installments: state.installments, paymentDate: state.paymentDate,
-    })
-
-    for (const row of result.installmentsToWrite) {
-      const col = row.key === 'number' ? 'number' : 'id'
-      await supabase.from('installments').update(row.data).eq('loan_id', state.loan.id).eq(col, row.value)
+    let result
+    try {
+      const rebalance = await rebalanceCapitalAbono({
+        amount, existingCapitalPaid, loan: state.loan, installments: state.installments, paymentDate: state.paymentDate,
+      })
+      result = await applyLoanOperation(supabase, state.loan.id, {
+        payment: {
+          amount, capital_amount: amount, interest_amount: 0,
+          payment_date: state.paymentDate, method: state.paymentMethod,
+          notes: state.paymentNotes || null, type: 'capital_abono',
+        },
+        installment_writes: rebalance.installmentsToWrite,
+        loan_updates: rebalance.loanUpdates as Partial<Loan>,
+      })
+    } catch (err) {
+      setters.setPaymentError('Error al registrar abono: ' + errorMessage(err, 'desconocido'))
+      setters.setLoading(false)
+      return
     }
-    await supabase.from('loans').update(result.loanUpdates).eq('id', state.loan.id)
-
-    const loanResult = await updateLoanAfterPayment(supabase, state.loan.id, state.loan.client_id)
+    const payment = result.payment as Payment
+    logAuditEvent(supabase, { userId, action: 'capital_abono', entityType: 'payment', entityId: payment.id, details: { loan_id: state.loan.loan_id, client_name: state.loan.client?.name, amount } })
     setters.setPayments(prev => [payment, ...prev])
-    setters.setLoan(prev => ({
-      ...prev,
-      paid_amount: result.stateLoan.paid_amount ?? loanResult.paid_amount ?? prev.paid_amount,
-      remaining_amount: result.stateLoan.remaining_amount ?? loanResult.remaining_amount ?? prev.remaining_amount,
-      installment_amount: result.stateLoan.installment_amount ?? prev.installment_amount,
-      total_amount: result.stateLoan.total_amount ?? prev.total_amount,
-      total_interest: result.stateLoan.total_interest ?? prev.total_interest,
-      progress: result.stateLoan.progress ?? loanResult.progress ?? prev.progress,
-      paid_installments: result.stateLoan.paid_installments ?? loanResult.paid_installments ?? prev.paid_installments,
-      status: result.stateLoan.status ?? loanResult.status ?? prev.status,
-    }))
-    const refreshedInsts = await supabase.from('installments').select('*').eq('loan_id', state.loan.id).order('number')
-    if (refreshedInsts.data) setters.setInstallments(refreshedInsts.data)
-    else if (result.fallbackInstallments) setters.setInstallments(result.fallbackInstallments)
+    setters.setLoan(prev => ({ ...prev, ...result.loan }))
+    setters.setInstallments(result.installments)
     setters.setShowCapitalAbono(false)
     setters.setCapitalAbonoAmount('')
     setters.setSuccessPayment(payment)
@@ -222,66 +225,51 @@ export function useSharedLoanHandlers(input: LoanHandlerInput, strategies: LoanR
     setters.setLoading(false)
   }
 
-  const handleReversePayment = async (paymentId: string) => {
-    if (state.loading) return
+  // Devuelve true si la reversión se aplicó; si falla deja el error en paymentError.
+  const handleReversePayment = async (paymentId: string): Promise<boolean> => {
+    if (state.loading) return false
     const payment = state.payments.find(p => p.id === paymentId)
-    if (!payment || payment.status !== 'paid') return
+    if (!payment || payment.status !== 'paid') return false
     const reason = state.reversalReason
-    if (!reason.trim()) return
+    if (!reason.trim()) return false
     setters.setLoading(true)
-    await supabase.from('payments').update({ status: 'reversed', reversal_reason: reason }).eq('id', paymentId)
-    logAuditEvent(supabase, { userId, action: 'payment.reversed', entityType: 'payment', entityId: paymentId, details: { loan_id: state.loan.loan_id, client_name: state.loan.client?.name, amount: payment.amount, reason } })
-    const newPaid = Math.max(0, Number(state.loan.paid_amount) - Number(payment.amount))
-    const paidCapital = Number(payment.capital_amount || 0)
-    const newRemaining = Math.max(0, Number(state.loan.remaining_amount) + paidCapital)
-    await supabase.from('loans').update({ paid_amount: newPaid, remaining_amount: newRemaining }).eq('id', state.loan.id)
+    setters.setPaymentError('')
 
-    const reversalState: Partial<Loan> = {}
+    const ops: LoanOperation = { reverse_payment_id: paymentId, reversal_reason: reason, reopen_if_unpaid: true }
     if (payment.installment_id) {
-      const updated = await recalculateInstallment(supabase, payment.installment_id)
-      setters.setInstallments(prev => prev.map(i => i.id === payment.installment_id ? { ...i, ...updated } : i))
+      ops.recalc_installments = [payment.installment_id]
     } else if (payment.type === 'liquidation') {
-      for (const inst of state.installments) {
-        const updated = await recalculateInstallment(supabase, inst.id)
-        setters.setInstallments(prev => prev.map(i => i.id === inst.id ? { ...i, ...updated } : i))
+      ops.recalc_installments = 'all'
+    } else if (payment.type === 'capital_abono') {
+      const newPaid = Math.max(0, Number(state.loan.paid_amount) - Number(payment.amount))
+      const newRemaining = Math.max(0, Number(state.loan.remaining_amount) + Number(payment.capital_amount || 0))
+      if (newRemaining > 0) {
+        const rebalance = await rebalanceReverseAbono({
+          payment, newRemaining, newPaid, loan: state.loan, installments: state.installments, payments: state.payments,
+        })
+        ops.installment_writes = rebalance.installmentsToWrite
+        ops.loan_updates = rebalance.loanUpdates as Partial<Loan>
       }
-    } else if (payment.type === 'capital_abono' && newRemaining > 0) {
-      const result = await rebalanceReverseAbono({
-        payment, newRemaining, newPaid, loan: state.loan, installments: state.installments, payments: state.payments,
-      })
-      for (const row of result.installmentsToWrite) {
-        const col = row.key === 'number' ? 'number' : 'id'
-        await supabase.from('installments').update(row.data).eq('loan_id', state.loan.id).eq(col, row.value)
-      }
-      if (Object.keys(result.loanUpdates).length > 0) {
-        await supabase.from('loans').update(result.loanUpdates).eq('id', state.loan.id)
-      }
-      if (result.installmentsPreview) setters.setInstallments(result.installmentsPreview)
-      Object.assign(reversalState, result.stateLoan)
+      // Mismo criterio que antes: el saldo vuelve a sumar el capital del abono.
+      ops.post_loan_updates = { remaining_amount: newRemaining, paid_amount: newPaid, status: 'active' }
     }
 
-    const loanUpdates = await updateLoanAfterPayment(supabase, state.loan.id, state.loan.client_id)
-    if (payment.type === 'capital_abono') {
-      await supabase.from('loans').update({ remaining_amount: newRemaining, paid_amount: newPaid, status: 'active' }).eq('id', state.loan.id)
-      loanUpdates.remaining_amount = newRemaining
-      loanUpdates.paid_amount = newPaid
-      loanUpdates.status = 'active'
-    } else if (loanUpdates.progress !== undefined && loanUpdates.progress < 100) {
-      await supabase.from('loans').update({ status: 'active' }).eq('id', state.loan.id)
-      loanUpdates.status = 'active'
+    let result
+    try {
+      result = await applyLoanOperation(supabase, state.loan.id, ops)
+    } catch (err) {
+      setters.setPaymentError('Error al revertir el pago: ' + errorMessage(err, 'desconocido'))
+      setters.setLoading(false)
+      return false
     }
+    logAuditEvent(supabase, { userId, action: 'payment.reversed', entityType: 'payment', entityId: paymentId, details: { loan_id: state.loan.loan_id, client_name: state.loan.client?.name, amount: payment.amount, reason } })
     setters.setPayments(prev => prev.map(p => p.id === paymentId ? { ...p, status: 'reversed', reversal_reason: reason } : p))
-    setters.setLoan(prev => ({
-      ...prev,
-      paid_amount: newPaid,
-      remaining_amount: newRemaining,
-      progress: loanUpdates.progress ?? prev.progress,
-      paid_installments: loanUpdates.paid_installments ?? prev.paid_installments,
-      status: loanUpdates.status ?? prev.status,
-      ...reversalState,
-    }))
+    // El saldo y las cuotas vienen de la base de datos: la pantalla queda igual a lo guardado.
+    setters.setLoan(prev => ({ ...prev, ...result.loan }))
+    setters.setInstallments(result.installments)
     router.refresh()
     setters.setLoading(false)
+    return true
   }
 
   return { handlePayInstallment, handleCapitalAbono, handleLiquidation, handleReversePayment }

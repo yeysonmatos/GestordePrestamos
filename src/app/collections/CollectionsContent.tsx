@@ -13,7 +13,7 @@ import { paymentTypeColors, paymentMethodColor } from '@/lib/status-colors'
 import { buildReceiptMessage } from '@/lib/messages'
 import { createClient } from '@/lib/supabase-client'
 import { calculateLateDays, calculateLateAmount, nextDueDateAfter } from '@/lib/calculations'
-import { updateLoanAfterPayment } from '@/lib/payments'
+import { applyLoanOperation } from '@/lib/loan-ops'
 import { logAuditEvent } from '@/lib/audit'
 import PaymentReceipt from '@/components/loans/PaymentReceipt'
 import Badge from '@/components/ui/Badge'
@@ -185,28 +185,30 @@ export default function CollectionsContent({
       const amount = parseFloat(paymentAmount)
       if (isNaN(amount) || amount <= 0) { setPaymentError('Monto inválido'); setLoading(false); return }
 
-      const { data: payment, error } = await supabase
-        .from('payments')
-        .insert({
-          loan_id: inst.loan_id,
-          client_id: inst.client_id,
-          user_id: userId,
-          amount,
-          capital_amount: 0,
-          interest_amount: amount,
-          payment_date: paymentDate,
-          method: paymentMethod,
-          notes: paymentNotes || null,
-          type: 'installment',
+      let payment: Payment | null = null
+      let updatedRemaining: number | null = null
+      try {
+        const result = await applyLoanOperation(supabase, inst.loan_id, {
+          payment: {
+            amount,
+            capital_amount: 0,
+            interest_amount: amount,
+            payment_date: paymentDate,
+            method: paymentMethod,
+            notes: paymentNotes || null,
+            type: 'installment',
+          },
         })
-        .select()
-        .single()
-
-      if (error) { setPaymentError('Error al registrar pago: ' + error.message); setLoading(false); return }
+        payment = result.payment
+        updatedRemaining = Number(result.loan.remaining_amount)
+      } catch (err) {
+        setPaymentError('Error al registrar pago: ' + (err instanceof Error ? err.message : 'desconocido'))
+        setLoading(false)
+        return
+      }
 
       if (payment) {
         logAuditEvent(supabase, { userId, action: 'payment.recorded', entityType: 'payment', entityId: payment.id, details: { loan_id: inst.loan?.loan_id || inst.loan_id, client_name: inst.loan?.client?.name, amount, type: 'interest_only' } })
-        await updateLoanAfterPayment(supabase, inst.loan_id, inst.client_id)
 
         setPayments(prev => [payment, ...prev])
         setSuccessPayment(payment)
@@ -217,7 +219,7 @@ export default function CollectionsContent({
           whatsapp: (inst.loan?.client?.whatsapp || openEndedLoan?.client?.whatsapp) || null,
           phone: (inst.loan?.client?.phone || openEndedLoan?.client?.phone) || null,
           amount: Number(inst.amount),
-          remaining_amount: openEndedLoan?.remaining_amount ?? 0,
+          remaining_amount: updatedRemaining ?? openEndedLoan?.remaining_amount ?? 0,
           amortization_type: 'interest_only' as const,
           frequency: 'monthly' as const,
           open_ended: true,

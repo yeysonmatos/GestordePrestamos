@@ -118,5 +118,5 @@ export interface LoanHandlers {
   handlePayInstallment: (e: React.FormEvent) => Promise<void>
   handleCapitalAbono: (e: React.FormEvent) => Promise<void>
   handleLiquidation: () => Promise<void>
-  handleReversePayment: (paymentId: string) => Promise<void>
+  handleReversePayment: (paymentId: string) => Promise<boolean>
 }

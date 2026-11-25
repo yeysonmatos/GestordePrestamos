@@ -602,7 +602,7 @@ export default function LoanDetail({ loan: initialLoan, installments: initialIns
                             }
                           }} className="w-7 h-7 rounded-md hover:bg-emerald-50 hover:text-emerald-600 flex items-center justify-center transition-colors" title="WhatsApp"><WhatsappLogo className="h-3.5 w-3.5" /></button>
                           {!readOnly && (
-                            <button onClick={() => { setReversalPaymentId(p.id); setReversalReason(''); setShowReversalModal(true) }} className="w-7 h-7 rounded-md hover:bg-red-50 flex items-center justify-center text-sm transition-colors" title="Reversar">
+                            <button onClick={() => { setReversalPaymentId(p.id); setReversalReason(''); setPaymentError(''); setShowReversalModal(true) }} className="w-7 h-7 rounded-md hover:bg-red-50 flex items-center justify-center text-sm transition-colors" title="Reversar">
                               <ArrowCounterClockwise className="h-3.5 w-3.5 text-destructive" />
                             </button>
                           )}
@@ -957,9 +957,12 @@ export default function LoanDetail({ loan: initialLoan, installments: initialIns
         <form onSubmit={async (e) => {
           e.preventDefault()
           if (!reversalPaymentId || !reversalReason.trim()) return
-          await handleReversePayment(reversalPaymentId)
-          setShowReversalModal(false)
+          const ok = await handleReversePayment(reversalPaymentId)
+          if (ok) setShowReversalModal(false)
         }} className="space-y-4">
+          {paymentError && (
+            <Alert variant="danger">{paymentError}</Alert>
+          )}
           <p className="text-sm text-muted-foreground">
             Ingresa el motivo por el cual estás revirtiendo este pago:
           </p>
